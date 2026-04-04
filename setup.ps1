@@ -3,6 +3,9 @@
 # 支持 Windows、macOS、Linux
 # 可重复执行，用于首次初始化或后续更新
 
+# winget 仅使用社区源，避免在未连通 Microsoft Store（msstore）时出现搜索失败 / 0x80072efd
+$script:WingetSourceArgs = @("--source", "winget")
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "  环境配置初始化/更新脚本开始执行  " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -64,7 +67,7 @@ function Install-Chezmoi {
 
     try {
         switch ($OS) {
-            "windows" { winget install --id twpayne.chezmoi --exact --silent }
+            "windows" { winget install @script:WingetSourceArgs --id twpayne.chezmoi --exact --silent }
             "macos"   { brew install chezmoi }
             Default   {
                 sh -c "$(curl -fsLS get.chezmoi.io)"
@@ -93,7 +96,7 @@ function Install-Mise {
 
     try {
         switch ($OS) {
-            "windows" { winget install --id jdx.mise --exact --silent }
+            "windows" { winget install @script:WingetSourceArgs --id jdx.mise --exact --silent }
             "macos"   { brew install mise }
             Default   {
                 curl https://mise.jdx.dev/install.sh | sh
@@ -179,6 +182,85 @@ function Install-MiseTools {
 }
 
 # ────────────────────────────────────────────────
+#  函数：安装 Anaconda（Windows 默认完整发行版 Anaconda.Anaconda3）
+#  跳过：DOTFILES_SKIP_CONDA=1
+#  安装根目录：DOTFILES_CONDA_ROOT（默认 D:\Anaconda3，需与 chezmoi 中 conda_root / ~/.condarc 一致）
+#  其它包 ID：DOTFILES_CONDA_WINGET_ID（一般不必改）
+#  NSIS 静默参数见：https://www.anaconda.com/docs/getting-started/anaconda/advanced-install/silent-mode
+# ────────────────────────────────────────────────
+function Install-Conda {
+    if ($env:DOTFILES_SKIP_CONDA -eq "1") {
+        Write-Host "已设置 DOTFILES_SKIP_CONDA=1，跳过 conda 安装。" -ForegroundColor Yellow
+        return
+    }
+    if (Get-Command conda -ErrorAction SilentlyContinue) {
+        Write-Host "conda 已在 PATH 中，跳过安装。" -ForegroundColor Green
+        return
+    }
+
+    if ($OS -eq "windows") {
+        $pkg = if ($env:DOTFILES_CONDA_WINGET_ID) { $env:DOTFILES_CONDA_WINGET_ID } else { "Anaconda.Anaconda3" }
+        $condaRoot = if ($env:DOTFILES_CONDA_ROOT) { $env:DOTFILES_CONDA_ROOT } else { 'D:\Anaconda3' }
+        # /D= 必须为安装程序最后一项；路径与 ~/.condarc、.chezmoi.toml.tmpl 中 conda_root 对齐
+        $override = "/InstallationType=JustMe /AddToPath=1 /RegisterPython=1 /S /D=$condaRoot"
+        Write-Host "正在通过 winget 安装 $pkg ，安装目录: $condaRoot ..." -ForegroundColor Cyan
+        try {
+            winget install @script:WingetSourceArgs --id $pkg --exact --silent --accept-package-agreements --accept-source-agreements --override $override
+            Write-Host "winget 安装结束。请新开终端；若需 PowerShell 集成可执行: conda init powershell" -ForegroundColor Yellow
+            Write-Host "包缓存与环境目录由 chezmoi 下发的 ~/.condarc 指定（默认 D:\conda\pkgs 与 D:\conda\envs）。首次请执行: chezmoi apply" -ForegroundColor Yellow
+        }
+        catch {
+            Write-Host "conda 安装失败: $_" -ForegroundColor Red
+        }
+        return
+    }
+
+    if ($OS -eq "macos") {
+        if (-not (Get-Command brew -ErrorAction SilentlyContinue)) {
+            Write-Host "未检测到 Homebrew，无法自动安装 Miniconda。请安装 brew 后执行: brew install --cask miniconda" -ForegroundColor Yellow
+            return
+        }
+        Write-Host "正在通过 Homebrew 安装 miniconda ..." -ForegroundColor Cyan
+        try {
+            brew install --cask miniconda
+            Write-Host "安装完成。新开终端后执行 conda init zsh（或 bash）。" -ForegroundColor Yellow
+        }
+        catch {
+            Write-Host "brew 安装 miniconda 失败: $_" -ForegroundColor Red
+        }
+        return
+    }
+
+    Write-Host "当前为 Linux：请在同目录执行 setup.sh，其中包含 Miniconda 安装脚本。" -ForegroundColor Yellow
+}
+
+# ────────────────────────────────────────────────
+#  函数：安装 Clash 图形客户端（Windows 使用 winget）
+#  跳过：DOTFILES_SKIP_CLASH=1
+#  包 ID：DOTFILES_CLASH_WINGET_ID（默认 ClashVergeRev.ClashVergeRev；经典 CFW 用 Fndroid.ClashForWindows）
+#  安装后请在客户端内开启系统代理或 TUN，并与 .chezmoi.toml.tmpl 中 proxy_url 端口一致（默认 7890）
+# ────────────────────────────────────────────────
+function Install-Clash {
+    if ($env:DOTFILES_SKIP_CLASH -eq "1") {
+        Write-Host "已设置 DOTFILES_SKIP_CLASH=1，跳过 Clash 安装。" -ForegroundColor Yellow
+        return
+    }
+    if ($OS -ne "windows") {
+        return
+    }
+
+    $pkg = if ($env:DOTFILES_CLASH_WINGET_ID) { $env:DOTFILES_CLASH_WINGET_ID } else { "ClashVergeRev.ClashVergeRev" }
+    Write-Host "正在通过 winget 安装 Clash 客户端 ($pkg) ..." -ForegroundColor Cyan
+    try {
+        winget install @script:WingetSourceArgs --id $pkg --exact --silent --accept-package-agreements --accept-source-agreements
+        Write-Host "Clash 客户端安装结束。请从开始菜单启动，导入订阅并开启代理（HTTP 端口建议与 proxy_url 一致）。" -ForegroundColor Yellow
+    }
+    catch {
+        Write-Host "Clash 安装失败（可能已安装或网络问题）: $_" -ForegroundColor Red
+    }
+}
+
+# ────────────────────────────────────────────────
 #  主流程
 # ────────────────────────────────────────────────
 try {
@@ -186,6 +268,8 @@ try {
     Install-Mise
     Initialize-Or-Update-Chezmoi -RepoUrl $REPO_URL
     Install-MiseTools
+    Install-Conda
+    Install-Clash
 
     Write-Host "`n==========================================" -ForegroundColor Green
     Write-Host "        环境配置完成！        " -ForegroundColor Green

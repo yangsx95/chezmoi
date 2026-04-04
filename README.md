@@ -51,9 +51,81 @@ cd $(chezmoi source-path)
 
 私有仓库：请先配置 **SSH**，或设置环境变量 **`GITHUB_TOKEN`** / **`DOTFILES_REPO_URL`**。
 
-脚本会依次：检测系统 → 按需安装 chezmoi、mise → 初始化或更新 chezmoi → `mise install`。
+脚本会依次：检测系统 → 按需安装 chezmoi、mise → 初始化或更新 chezmoi → `mise install` → **可选 Conda** → **可选 Clash 客户端**（见下两节）。
 
 执行完成后，一般会安装工具、同步配置并写入环境变量；在已安装 PowerShell / zsh 等的前提下即可使用仓库中的 shell 配置。
+
+### Anaconda / conda（setup 脚本 + `~/.condarc`）
+
+[mise](https://mise.jdx.dev/) 可为项目安装 **CPython**（见 `dot_config/mise/config.toml.tmpl`），与 conda **不冲突**。
+
+| 平台 | 默认行为 |
+|------|----------|
+| **Windows** | **`winget install Anaconda.Anaconda3`**（完整发行版，非 Miniconda），静默安装到 **`D:\Anaconda3`**（可用环境变量覆盖） |
+| **macOS** | `brew install --cask miniconda`（需已安装 Homebrew） |
+| **Linux / WSL** | 官方脚本静默安装到 **`~/miniconda3`** |
+
+**Windows 下路径约定（可在 `.chezmoi.toml.tmpl` 的 `[data]` 中修改后 `chezmoi apply`）：**
+
+| 项 | 默认 |
+|----|------|
+| Anaconda 安装根目录 | `D:/Anaconda3`（`conda_root`，与 `setup.ps1` 中 `DOTFILES_CONDA_ROOT` 一致） |
+| 包下载缓存 `pkgs_dirs` | `D:/conda/pkgs` |
+| 虚拟环境目录 `envs_dirs` | `D:/conda/envs` |
+
+上述后两项由 **`dot_condarc.tmpl`** 生成 **`%USERPROFILE%\.condarc`**，在安装 Anaconda **之后**请执行 **`chezmoi apply`**，确保缓存与环境目录指向 D 盘。若先改安装盘，请同时改 `conda_root` 与 `DOTFILES_CONDA_ROOT`，再 `chezmoi apply`。
+
+仅改安装目录（不改 winget 包名）：
+
+```powershell
+$env:DOTFILES_CONDA_ROOT = "E:\Anaconda3"
+.\setup.ps1
+```
+
+**跳过 conda 安装**（仅 chezmoi + mise）：
+
+```powershell
+$env:DOTFILES_SKIP_CONDA = "1"
+.\setup.ps1
+```
+
+```bash
+export DOTFILES_SKIP_CONDA=1
+./setup.sh
+```
+
+安装后若当前终端仍无 `conda`，请**新开终端**，并按提示执行 `conda init`（PowerShell / zsh / bash）。
+
+### Clash 客户端（可选，setup 脚本）
+
+可与下方 **`proxy_url`（默认 `http://127.0.0.1:7890`）** 配合：先装 **Clash 系 GUI**，在软件里开启**系统代理**或 **Mixed Port**，端口与 `proxy_url` 一致即可。
+
+| 平台 | 默认行为 |
+|------|----------|
+| **Windows**（`setup.ps1`） | `winget install --source winget …`（仅 **winget** 源，避免连不上 **Microsoft Store** 源时报错 `msstore` / `0x80072efd`） |
+| **macOS**（`setup.sh`） | `brew install --cask clash-verge-rev` |
+| **Linux / WSL** | 脚本仅打印说明，请自行安装 [Release](https://github.com/clash-verge-rev/clash-verge-rev/releases) 或使用发行版包 |
+
+若更习惯 **Clash for Windows**（旧版界面），在运行 `setup.ps1` 前：
+
+```powershell
+$env:DOTFILES_CLASH_WINGET_ID = "Fndroid.ClashForWindows"
+.\setup.ps1
+```
+
+**跳过 Clash 安装**：
+
+```powershell
+$env:DOTFILES_SKIP_CLASH = "1"
+.\setup.ps1
+```
+
+```bash
+export DOTFILES_SKIP_CLASH=1
+./setup.sh
+```
+
+若手动执行 `winget install` 仍提示 **搜索源时失败: msstore**，请加上 **`--source winget`**，或先修复网络/代理后再试。
 
 ## HTTP 代理（可选关闭）
 

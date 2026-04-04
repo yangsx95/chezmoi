@@ -189,6 +189,93 @@ install_mise_tools() {
 }
 
 # ────────────────────────────────────────
+# 安装 Conda（默认 Miniconda；完整版可设 DOTFILES_CONDA_FULL=1 使用 Anaconda3）
+# 跳过：DOTFILES_SKIP_CONDA=1
+# ────────────────────────────────────────
+install_conda() {
+    if [ "${DOTFILES_SKIP_CONDA:-}" = "1" ]; then
+        echo -e "${YELLOW}已设置 DOTFILES_SKIP_CONDA=1，跳过 conda 安装。${NC}"
+        return
+    fi
+    if command -v conda &> /dev/null; then
+        echo -e "${GREEN}conda 已在 PATH 中，跳过安装。${NC}"
+        return
+    fi
+
+    case "$OS" in
+        macos)
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}未检测到 Homebrew，请手动安装: brew install --cask miniconda${NC}"
+                return
+            fi
+            echo -e "${CYAN}通过 Homebrew 安装 miniconda ...${NC}"
+            if brew install --cask miniconda; then
+                echo -e "${GREEN}miniconda 安装完成。新开终端后执行: conda init zsh${NC}"
+            else
+                echo -e "${RED}brew 安装 miniconda 失败${NC}"
+            fi
+            ;;
+        linux|wsl)
+            if [ "${DOTFILES_CONDA_FULL:-}" = "1" ]; then
+                echo -e "${YELLOW}完整 Anaconda 请从官网下载安装；此处仅支持 Miniconda 静默安装到 ~/miniconda3${NC}"
+            fi
+            ARCH=$(uname -m)
+            case "$ARCH" in
+                x86_64)  MINI_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" ;;
+                aarch64) MINI_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh" ;;
+                *)
+                    echo -e "${RED}不支持的架构: $ARCH${NC}"
+                    return 1
+                    ;;
+            esac
+            TMP=$(mktemp)
+            echo -e "${CYAN}下载 Miniconda 安装脚本 ...${NC}"
+            if ! curl -fsSL "$MINI_URL" -o "$TMP"; then
+                echo -e "${RED}下载失败${NC}"
+                rm -f "$TMP"
+                return 1
+            fi
+            echo -e "${CYAN}静默安装到 ${HOME}/miniconda3 ...${NC}"
+            bash "$TMP" -b -p "${HOME}/miniconda3"
+            rm -f "$TMP"
+            # shellcheck disable=SC1091
+            if [ -f "${HOME}/miniconda3/bin/conda" ]; then
+                echo -e "${GREEN}Miniconda 已安装。请将 ${HOME}/miniconda3/bin 加入 PATH，并执行: ${HOME}/miniconda3/bin/conda init bash${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 conda。${NC}"
+            ;;
+    esac
+}
+
+# ────────────────────────────────────────
+# Clash 图形客户端（macOS：Homebrew；Linux：仅提示）
+# 跳过：DOTFILES_SKIP_CLASH=1
+# ────────────────────────────────────────
+install_clash() {
+    if [ "${DOTFILES_SKIP_CLASH:-}" = "1" ]; then
+        echo -e "${YELLOW}已设置 DOTFILES_SKIP_CLASH=1，跳过 Clash 安装。${NC}"
+        return
+    fi
+    case "$OS" in
+        macos)
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask clash-verge-rev${NC}"
+                return
+            fi
+            echo -e "${CYAN}安装 Clash Verge Rev (macOS)...${NC}"
+            brew install --cask clash-verge-rev || echo -e "${YELLOW}brew 安装失败或已安装${NC}"
+            ;;
+        linux|wsl)
+            echo -e "${YELLOW}Linux/WSL 请自行安装 Clash / Mihomo / Clash Verge Rev，见: https://github.com/clash-verge-rev/clash-verge-rev${NC}"
+            ;;
+        *)
+            ;;
+    esac
+}
+
+# ────────────────────────────────────────
 # 主流程
 # ────────────────────────────────────────
 main() {
@@ -205,6 +292,12 @@ main() {
 
     # 3. 安装 mise 声明的工具
     install_mise_tools
+
+    # 4. 安装 Miniconda / conda（可选跳过）
+    install_conda
+
+    # 5. Clash 客户端（可选跳过）
+    install_clash
 
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}环境配置完成！${NC}"

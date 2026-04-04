@@ -1,0 +1,11 @@
+# chezmoi：Windows 下自定义 conda 包缓存与虚拟环境目录（与 .chezmoi.toml.tmpl 中 conda_* 一致）
+channels:
+  - defaults
+{{- if eq .chezmoi.os "windows" }}
+{{- $pkgs := default "D:/conda/pkgs" (index . "conda_pkgs_dir") }}
+{{- $envs := default "D:/conda/envs" (index . "conda_envs_dir") }}
+pkgs_dirs:
+  - {{ $pkgs | quote }}
+envs_dirs:
+  - {{ $envs | quote }}
+{{- end }}
