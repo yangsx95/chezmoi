@@ -1,0 +1,4 @@
+# npm 全局配置
+save-exact=true
+optional=true
+engine-strict=false

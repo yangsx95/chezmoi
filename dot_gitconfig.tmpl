@@ -1,0 +1,46 @@
+[user]
+    name = {{ .name | quote }}
+    email = {{ .email | quote }}
+
+[core]
+    # 自动处理换行符lf
+    autocrlf = input
+    
+    # 全局 ignore 文件
+    excludesFile = ~/.gitignore
+    
+    # 解决git status中文乱码
+    quotepath = false
+    
+    # 默认编辑器
+    {{- if eq .chezmoi.os "windows" }}
+    editor = notepad
+    {{- else }}
+    editor = vim
+    {{- end }}
+
+[init]
+    defaultBranch = main
+
+[color]
+    ui = auto
+
+[push]
+    # 第一次推送时自动创建远程分支
+    autoSetupRemote = true
+
+[alias]
+    # 常用别名
+    st = status
+    co = checkout
+    br = branch
+
+[i18n]
+    # 设置提交说明的编码为 utf-8
+    commitEncoding = utf-8
+    # 设置 log 日志输出的编码为 utf-8
+    logOutputEncoding = utf-8
+
+[gui]
+    # 设置 GUI 界面编码
+    encoding = utf-8

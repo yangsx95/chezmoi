@@ -1,0 +1,7 @@
+# Readline 配置（bash、python、mysql、redis-cli 等）
+# 上下键按已输入前缀搜索历史
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+
+# 补全时不区分大小写
+set completion-ignore-case on

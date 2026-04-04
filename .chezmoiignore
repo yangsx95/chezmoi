@@ -1,0 +1,15 @@
+# 下列文件不会同步到Home目录
+
+# 文档和版本控制
+README.md
+.git/**
+.chezmoistate
+
+# 安装和配置脚本
+install.sh
+setup.ps1
+setup.sh
+
+# 系统文件
+.DS_Store
+desktop.ini

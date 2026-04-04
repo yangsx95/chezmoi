@@ -1,0 +1,11 @@
+# 启用构建缓存，缓存构建输出以加速后续构建
+org.gradle.caching=true
+
+# 并行执行项目，利用多核 CPU 加速构建
+org.gradle.parallel=true
+
+# 按需配置项目，只配置当前构建所需的项目，减少配置时间
+org.gradle.configureondemand=true
+
+# 启用 Gradle 守护进程，避免每次构建都启动新的 JVM 进程，大幅提升构建速度
+org.gradle.daemon=true

@@ -1,0 +1,7 @@
+# ~/.zprofile：login shell 加载，供 macOS GUI 启动的应用获得 PATH
+# 确保 Homebrew / mise 等在非交互式或 GUI 场景下可用
+
+[[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+[[ -f /usr/local/bin/brew ]] && eval "$(/usr/local/bin/brew shellenv)"
+
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"

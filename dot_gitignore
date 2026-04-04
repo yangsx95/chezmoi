@@ -1,0 +1,9 @@
+# 全局 git ignore（core.excludesFile = ~/.gitignore）
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws

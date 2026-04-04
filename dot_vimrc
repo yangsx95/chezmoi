@@ -1,0 +1,44 @@
+" 基础设置
+set encoding=utf-8
+set fileencodings=utf-8,gbk,gb2312,cp936,latin1
+set termencoding=utf-8
+
+" 显示设置
+set number
+set cursorline
+set showmatch
+set scrolloff=8
+set laststatus=2
+set showcmd
+set showmode
+set nowrap
+
+" 搜索设置
+set ignorecase
+set smartcase
+set incsearch
+set hlsearch
+
+" 缩进设置
+set tabstop=4
+set softtabstop=4
+set shiftwidth=4
+set expandtab
+set autoindent
+
+" 文件设置
+set autoread
+set fileformats=unix,dos,mac
+
+" 鼠标设置
+set mouse=a
+
+" 简单的颜色主题
+set background=dark
+colorscheme default
+
+" 快捷键映射
+let mapleader=" "
+nnoremap <leader>w :w<CR>
+nnoremap <leader>q :q<CR>
+
