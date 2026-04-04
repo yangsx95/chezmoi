@@ -1,4 +1,5 @@
-# 下列文件不会同步到Home目录
+# 不同步到家目录；模式为「目标路径」（相对家目录），见
+# https://www.chezmoi.io/reference/special-files/chezmoiignore/
 
 # 文档和版本控制
 README.md
@@ -13,3 +14,18 @@ setup.sh
 # 系统文件
 .DS_Store
 desktop.ini
+
+{{- if eq .chezmoi.os "windows" }}
+# Windows：不部署 Unix / zsh 等
+.zshrc
+.zprofile
+.proxyrc
+.vimrc
+.inputrc
+{{- else }}
+# 非 Windows：不部署 Windows 专用
+.profile.ps1
+Documents/PowerShell/Microsoft.PowerShell_profile.ps1
+Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1
+.wslconfig
+{{- end }}

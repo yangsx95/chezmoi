@@ -2,7 +2,7 @@
 
 本仓库为 [chezmoi](https://www.chezmoi.io/) 管理的个人环境配置，默认远程仓库：`yangsx95/dotfiles`。以下命令中的 `<github_api_token>` 需替换为你的 GitHub Personal Access Token（`repo` 权限）；**若已配置 SSH**，可改用文内 SSH 地址，无需把令牌写进命令行历史。
 
-**GitHub API 令牌（给 zsh 里的 `GITHUB_API_TOKEN`）**：不要写在仓库里的 `.chezmoi.toml.tmpl`。任选其一：在 **`chezmoi edit-config`** 打开的本地配置中于 `[data]` 设置 `github_api_token = "..."`；或在执行 **`chezmoi apply` 的环境中**设置环境变量 **`GITHUB_TOKEN`**（优先于 data）。若令牌曾出现在旧版本提交中，请到 GitHub 上**撤销并换新**。
+**GitHub API 令牌（给 zsh 里的 `GITHUB_API_TOKEN`）**：任选其一：在 **`chezmoi edit-config`** 打开的本地配置中于 `[data]` 设置 `github_api_token = "..."`；或在执行 **`chezmoi apply` 的环境中**设置环境变量 **`GITHUB_TOKEN`**（优先于 data）。若令牌曾出现在旧版本提交中，请到 GitHub 上**撤销并换新**。
 
 ## 系统环境配置指南
 
