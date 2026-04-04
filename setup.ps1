@@ -30,10 +30,24 @@ if (-not $OS) {
 Write-Host "检测到系统类型: $OS" -ForegroundColor Green
 
 # ────────────────────────────────────────────────
-#  GitHub 仓库（含 token 示例，请替换为真实 token 或使用 SSH）
+#  GitHub 仓库：勿写死令牌。DOTFILES_REPO_URL > GITHUB_TOKEN/GH_TOKEN > SSH
+#  默认仓库：DOTFILES_GITHUB_SLUG = owner/repo（与 README 一致）
 # ────────────────────────────────────────────────
-$GITHUB_TOKEN = "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"   # ← 务必替换！
-$REPO_URL     = "https://${GITHUB_TOKEN}@github.com/yangsx95/dotfiles.git"
+$slug = if ($env:DOTFILES_GITHUB_SLUG) { $env:DOTFILES_GITHUB_SLUG } else { "yangsx95/chezmoi" }
+if ($env:DOTFILES_REPO_URL) {
+    $REPO_URL = $env:DOTFILES_REPO_URL
+}
+else {
+    $token = $env:GITHUB_TOKEN
+    if (-not $token) { $token = $env:GH_TOKEN }
+    if ($token) {
+        $REPO_URL = "https://${token}@github.com/${slug}.git"
+    }
+    else {
+        $REPO_URL = "git@github.com:${slug}.git"
+        Write-Host "未设置 GITHUB_TOKEN：将使用 SSH $REPO_URL（请确保已配置 ssh.github.com 密钥）" -ForegroundColor Yellow
+    }
+}
 
 # ────────────────────────────────────────────────
 #  函数：安装 chezmoi

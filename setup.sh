@@ -41,10 +41,18 @@ fi
 echo -e "${GREEN}检测到系统类型: $OS${NC}"
 
 # ────────────────────────────────────────
-# GitHub 仓库（含 token 示例，请替换为真实 token 或使用 SSH）
+# GitHub 仓库：勿写死令牌。DOTFILES_REPO_URL > GITHUB_TOKEN/GH_TOKEN > SSH
 # ────────────────────────────────────────
-GITHUB_TOKEN="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"   # ← 请必替换！
-REPO_URL="https://${GITHUB_TOKEN}@github.com/yangsx95/dotfiles.git"
+SLUG="${DOTFILES_GITHUB_SLUG:-yangsx95/chezmoi}"
+if [ -n "${DOTFILES_REPO_URL:-}" ]; then
+    REPO_URL="$DOTFILES_REPO_URL"
+elif [ -n "${GITHUB_TOKEN:-}" ] || [ -n "${GH_TOKEN:-}" ]; then
+    TOKEN="${GITHUB_TOKEN:-$GH_TOKEN}"
+    REPO_URL="https://${TOKEN}@github.com/${SLUG}.git"
+else
+    REPO_URL="git@github.com:${SLUG}.git"
+    echo -e "${YELLOW}未设置 GITHUB_TOKEN：将使用 SSH ${REPO_URL}（请确保已配置 ssh.github.com 密钥）${NC}"
+fi
 
 # ────────────────────────────────────────
 # 函数：安装 chezmoi

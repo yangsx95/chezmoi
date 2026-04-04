@@ -1,6 +1,6 @@
-# dotfiles 配置说明
+# 个人环境配置（chezmoi）
 
-本仓库为 [chezmoi](https://www.chezmoi.io/) 管理的个人环境配置，默认远程仓库：`yangsx95/dotfiles`。以下命令中的 `<github_api_token>` 需替换为你的 GitHub Personal Access Token（`repo` 权限）；**若已配置 SSH**，可改用文内 SSH 地址，无需把令牌写进命令行历史。
+本仓库为 [chezmoi](https://www.chezmoi.io/) 源仓库，GitHub 地址：**`https://github.com/yangsx95/chezmoi`**。以下命令中的 `<github_api_token>` 需替换为你的 GitHub Personal Access Token（`repo` 权限）；**若已配置 SSH**，可改用文内 SSH 地址，无需把令牌写进命令行历史。
 
 **GitHub API 令牌（给 zsh 里的 `GITHUB_API_TOKEN`）**：任选其一：在 **`chezmoi edit-config`** 打开的本地配置中于 `[data]` 设置 `github_api_token = "..."`；或在执行 **`chezmoi apply` 的环境中**设置环境变量 **`GITHUB_TOKEN`**（优先于 data）。若令牌曾出现在旧版本提交中，请到 GitHub 上**撤销并换新**。
 
@@ -20,10 +20,10 @@
 
 ```shell
 # 方式 A：HTTPS + 令牌（将 <github_api_token> 换成你的 PAT）
-chezmoi init --apply https://<github_api_token>@github.com/yangsx95/dotfiles.git
+chezmoi init --apply https://<github_api_token>@github.com/yangsx95/chezmoi.git
 
 # 方式 B：SSH（本机已添加 GitHub SSH 公钥时）
-# chezmoi init --apply git@github.com:yangsx95/dotfiles.git
+# chezmoi init --apply git@github.com:yangsx95/chezmoi.git
 
 # 安装 mise 声明的工具（.mise.toml / .tool-versions）
 mise install
