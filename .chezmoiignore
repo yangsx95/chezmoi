@@ -22,10 +22,13 @@ desktop.ini
 .proxyrc
 .vimrc
 .inputrc
+.config/pip/pip.conf
 {{- else }}
 # 非 Windows：不部署 Windows 专用
 .profile.ps1
 Documents/PowerShell/Microsoft.PowerShell_profile.ps1
 Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1
 .wslconfig
+AppData/Roaming/pip/pip.ini
+.docker/daemon.json
 {{- end }}
