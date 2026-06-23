@@ -265,7 +265,7 @@ install_conda() {
 }
 
 # ────────────────────────────────────────
-# Clash 图形客户端（macOS：Homebrew；Linux：仅提示）
+# Clash 客户端（macOS：Homebrew；Linux/WSL：AppImage 或 DEB）
 # 跳过：DOTFILES_SKIP_CLASH=1
 # ────────────────────────────────────────
 install_clash() {
@@ -283,11 +283,74 @@ install_clash() {
             brew install --cask clash-verge-rev || echo -e "${YELLOW}brew 安装失败或已安装${NC}"
             ;;
         linux|wsl)
-            echo -e "${YELLOW}Linux/WSL 请自行安装 Clash / Mihomo / Clash Verge Rev，见: https://github.com/clash-verge-rev/clash-verge-rev${NC}"
+            local CLASH_REPO="clash-verge-rev/clash-verge-rev"
+            local CLASH_VERSION
+            CLASH_VERSION=$(curl -fsSL --max-time 15 "https://api.github.com/repos/${CLASH_REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/')
+
+            if [ -z "$CLASH_VERSION" ]; then
+                echo -e "${YELLOW}无法获取 Clash Verge Rev 最新版本，请手动安装: https://github.com/${CLASH_REPO}/releases${NC}"
+                return
+            fi
+
+            echo -e "${CYAN}安装 Clash Verge Rev ${CLASH_VERSION} (Linux/WSL)...${NC}"
+
+            # 移除 v 前缀
+            local VER="${CLASH_VERSION#v}"
+
+            # 优先尝试 DEB（Ubuntu/Debian/WSL 默认），否则 AppImage
+            if command -v dpkg &> /dev/null; then
+                local ARCH
+                ARCH=$(dpkg --print-architecture)
+                local DEB_URL="https://github.com/${CLASH_REPO}/releases/download/${CLASH_VERSION}/Clash.Verge_${VER}_${ARCH}.deb"
+                local TMP_DEB=$(mktemp /tmp/clash-verge.XXXXXX.deb)
+
+                echo -e "${CYAN}下载 ${DEB_URL} ...${NC}"
+                if curl -fsSL --max-time 120 -o "$TMP_DEB" "$DEB_URL"; then
+                    echo -e "${CYAN}安装 DEB 包 (需要 sudo)...${NC}"
+                    if sudo dpkg -i "$TMP_DEB" 2>/dev/null; then
+                        echo -e "${GREEN}Clash Verge Rev DEB 安装完成${NC}"
+                    else
+                        sudo apt-get install -f -y 2>/dev/null && sudo dpkg -i "$TMP_DEB" && echo -e "${GREEN}Clash Verge Rev DEB 安装完成（依赖已修复）${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}DEB 下载失败，尝试 AppImage...${NC}"
+                    _install_clash_appimage "$CLASH_REPO" "$CLASH_VERSION" "$VER"
+                fi
+                rm -f "$TMP_DEB"
+            else
+                _install_clash_appimage "$CLASH_REPO" "$CLASH_VERSION" "$VER"
+            fi
             ;;
         *)
             ;;
     esac
+}
+
+_install_clash_appimage() {
+    local repo="$1" version="$2" ver="$3"
+    local ARCH
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64) ARCH="amd64" ;;
+        aarch64) ARCH="arm64" ;;
+    esac
+
+    local APPIMAGE_URL="https://github.com/${repo}/releases/download/${version}/Clash.Verge_${ver}_${ARCH}.AppImage"
+    local INSTALL_DIR="${HOME}/.local/bin"
+    local APPIMAGE_PATH="${INSTALL_DIR}/clash-verge-rev.AppImage"
+
+    mkdir -p "$INSTALL_DIR"
+
+    echo -e "${CYAN}下载 AppImage: ${APPIMAGE_URL} ...${NC}"
+    if curl -fsSL --max-time 120 -o "$APPIMAGE_PATH" "$APPIMAGE_URL"; then
+        chmod +x "$APPIMAGE_PATH"
+        echo -e "${GREEN}Clash Verge Rev AppImage 已安装到 ${APPIMAGE_PATH}${NC}"
+        echo -e "${YELLOW}  • 确保 \$HOME/.local/bin 在 PATH 中${NC}"
+        echo -e "${YELLOW}  • WSL 用户需安装 VcXsrv/GWSL 以支持 GUI${NC}"
+    else
+        echo -e "${RED}AppImage 下载失败${NC}"
+        echo -e "${YELLOW}请手动安装: https://github.com/${repo}/releases${NC}"
+    fi
 }
 
 # ────────────────────────────────────────
