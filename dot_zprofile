@@ -1,7 +1,12 @@
-# ~/.zprofile：login shell 加载，供 macOS GUI 启动的应用获得 PATH
-# 确保 Homebrew / mise 等在非交互式或 GUI 场景下可用
+# ~/.zprofile：login shell 加载
+# 确保 PATH 在非交互式或 GUI 场景下可用
 
+# Homebrew（macOS Apple Silicon / Intel）
 [[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
 [[ -f /usr/local/bin/brew ]] && eval "$(/usr/local/bin/brew shellenv)"
 
+# 用户本地 bin 优先
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+
+# WSL：将 Windows 侧常用工具加入 PATH（可选）
+# export PATH="$PATH:/mnt/c/Users/$(/mnt/c/Windows/System32/cmd.exe /c 'echo %USERNAME%' 2>/dev/null | tr -d '\r')/AppData/Local/Programs/Microsoft VS Code/bin"

@@ -1,8 +1,10 @@
 #!/bin/bash
 
-# 统一环境配置脚本 - 自动初始化或更新 dotfile 和 mise 配置
+# ============================================================
+# chezmoi dotfiles 统一安装脚本
 # 支持 macOS、Linux、WSL
-# 可重复执行，用于首次初始化或后续更新配置
+# 可重复执行：首次初始化 或 后续更新配置
+# ============================================================
 
 set -e
 
@@ -40,8 +42,15 @@ fi
 
 echo -e "${GREEN}检测到系统类型: $OS${NC}"
 
+# WSL 额外提示
+if [ "$OS" = "wsl" ]; then
+    echo -e "${CYAN}检测到 WSL 环境。${NC}"
+    echo -e "${YELLOW}  • 建议在 Windows 侧安装 VcXsrv/GWSL 以支持 X11 GUI${NC}"
+    echo -e "${YELLOW}  • 将 ~/.wslconfig 手动复制到 Windows %USERPROFILE% 以启用 mirrored 网络模式${NC}"
+fi
+
 # ────────────────────────────────────────
-# GitHub 仓库：勿写死令牌。DOTFILES_REPO_URL > GITHUB_TOKEN/GH_TOKEN > SSH
+# GitHub 仓库：DOTFILES_REPO_URL > GITHUB_TOKEN/GH_TOKEN > SSH
 # ────────────────────────────────────────
 SLUG="${DOTFILES_GITHUB_SLUG:-yangsx95/chezmoi}"
 if [ -n "${DOTFILES_REPO_URL:-}" ]; then
@@ -51,7 +60,13 @@ elif [ -n "${GITHUB_TOKEN:-}" ] || [ -n "${GH_TOKEN:-}" ]; then
     REPO_URL="https://${TOKEN}@github.com/${SLUG}.git"
 else
     REPO_URL="git@github.com:${SLUG}.git"
-    echo -e "${YELLOW}未设置 GITHUB_TOKEN：将使用 SSH ${REPO_URL}（请确保已配置 ssh.github.com 密钥）${NC}"
+    echo -e "${YELLOW}未设置 GITHUB_TOKEN：将使用 SSH ${REPO_URL}${NC}"
+    # 检查 SSH 密钥是否存在，不存在则提示生成
+    if [ ! -f "$HOME/.ssh/id_ed25519" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
+        echo -e "${YELLOW}未检测到 SSH 密钥，建议生成:${NC}"
+        echo -e "${WHITE}  ssh-keygen -t ed25519 -C \"${GIT_AUTHOR_EMAIL:-your@email.com}\"${NC}"
+        echo -e "${WHITE}  cat ~/.ssh/id_ed25519.pub  # 添加到 GitHub Settings > SSH Keys${NC}"
+    fi
 fi
 
 # ────────────────────────────────────────
@@ -312,8 +327,14 @@ main() {
     # 提示重新加载 shell 配置
     echo -e "\n${YELLOW}提示: 请重新加载 shell 配置或重新打开终端以应用所有更改${NC}"
     case $OS in
-        "linux"|"wsl")
-            echo -e "${YELLOW}执行: source ~/.bashrc${NC}"
+        "linux")
+            echo -e "${YELLOW}执行: source ~/.bashrc 或 source ~/.zshrc${NC}"
+            ;;
+        "wsl")
+            echo -e "${YELLOW}执行: source ~/.zshrc${NC}"
+            echo -e "${YELLOW}WSL 提示：${NC}"
+            echo -e "${WHITE}  • 将仓库中的 .wslconfig 复制到 Windows 用户目录以启用 mirrored 网络${NC}"
+            echo -e "${WHITE}  • 推荐安装 Windows Terminal 作为 WSL 终端${NC}"
             ;;
         "macos")
             echo -e "${YELLOW}执行: source ~/.zshrc${NC}"

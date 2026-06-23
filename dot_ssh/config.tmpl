@@ -1,0 +1,26 @@
+# ~/.ssh/config — SSH 客户端配置
+# chezmoi 模板，OS 条件自动适配
+
+Host *
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentitiesOnly yes
+
+Host github.com
+    HostName ssh.github.com
+    Port 443
+    User git
+    PreferredAuthentications publickey
+
+Host gitlab.com
+    PreferredAuthentications publickey
+
+Host codeup.aliyun.com
+    HostName codeup.aliyun.com
+    User git
+    PreferredAuthentications publickey
+
+# 国内服务超时调整
+Host *.tencent.com *.alibaba-inc.com *.myqcloud.com
+    ConnectTimeout 10
+    ServerAliveInterval 30

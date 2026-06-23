@@ -114,6 +114,12 @@ export LC_ALL='en_US.UTF-8'
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
+{{- if eq .chezmoi.os "linux" }}
+# Linux / WSL：X11 转发到 Windows 主机（配合 VcXsrv / GWSL 等）
+# export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0.0
+# export LIBGL_ALWAYS_INDIRECT=1
+{{- end }}
+
 # GitHub API 令牌（优先环境变量 GITHUB_TOKEN，否则为 chezmoi data.github_api_token）
 export GITHUB_API_TOKEN={{ coalesce (env "GITHUB_TOKEN") .github_api_token | quote }}
 
@@ -138,7 +144,7 @@ alias mkdir='mkdir -p'
 alias tree='find . -type f | sort | tree --fromfile'
 
 # 系统相关
-alias top='htop'
+if command -v htop &>/dev/null; then alias top='htop'; fi
 alias free='free -h'
 alias df='df -h'
 alias du='du -h'
@@ -165,7 +171,7 @@ alias gsp='git stash pop'
 alias ping='ping -c 5'
 alias fastping='ping -c 100 -s.2'
 alias ip='ip -c'
-alias ifconfig='ifconfig -a'
+if command -v ifconfig &>/dev/null; then alias ifconfig='ifconfig -a'; fi
 
 # 开发相关
 alias py='python3'
@@ -177,8 +183,12 @@ alias pnpm='pnpm --no-fund'
 
 # -------------- 其他设置 --------------
 
-# 启用 ls 颜色
+# 启用 ls 颜色（Linux/WSL 使用 --color=auto；macOS 使用 -G）
+{{- if eq .chezmoi.os "darwin" }}
 alias ls='ls -G'
+{{- else }}
+alias ls='ls --color=auto'
+{{- end }}
 
 # 启用自动 cd
 setopt autocd

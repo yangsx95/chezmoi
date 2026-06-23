@@ -8,7 +8,6 @@ README.md
 
 # 安装和配置脚本
 install.sh
-setup.ps1
 setup.sh
 
 # 系统文件
@@ -23,12 +22,13 @@ desktop.ini
 .vimrc
 .inputrc
 .config/pip/pip.conf
+.config/gh/config.yml
+.docker/daemon.json
+.config/mise/config.toml
 {{- else }}
-# 非 Windows：不部署 Windows 专用
-.profile.ps1
+# 非 Windows（Linux / WSL / macOS）：不部署 Windows 专用
 Documents/PowerShell/Microsoft.PowerShell_profile.ps1
 Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1
 .wslconfig
 AppData/Roaming/pip/pip.ini
-.docker/daemon.json
 {{- end }}

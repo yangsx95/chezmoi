@@ -1,161 +1,172 @@
-# 个人环境配置（chezmoi）
+# chezmoi dotfiles
 
-本仓库为 [chezmoi](https://www.chezmoi.io/) 源仓库，GitHub 地址：**`https://github.com/yangsx95/chezmoi`**。以下命令中的 `<github_api_token>` 需替换为你的 GitHub Personal Access Token（`repo` 权限）；**若已配置 SSH**，可改用文内 SSH 地址，无需把令牌写进命令行历史。
+本仓库为 [chezmoi](https://www.chezmoi.io/) 源仓库，管理个人开发环境配置。
 
-**GitHub API 令牌（给 zsh 里的 `GITHUB_API_TOKEN`）**：任选其一：在 **`chezmoi edit-config`** 打开的本地配置中于 `[data]` 设置 `github_api_token = "..."`；或在执行 **`chezmoi apply` 的环境中**设置环境变量 **`GITHUB_TOKEN`**（优先于 data）。若令牌曾出现在旧版本提交中，请到 GitHub 上**撤销并换新**。
+**开发模式**：Windows 作为宿主机，主要开发工作在 WSL2 中进行；macOS 作为备选开发平台。
 
-## 系统环境配置指南
+## 快速开始
 
-### 1. 安装依赖工具
+### WSL2（推荐）
 
-按系统选择安装 **chezmoi** 与 **mise**：
+```bash
+# 1. 克隆仓库
+git clone git@github.com:yangsx95/chezmoi.git ~/chezmoi-dotfiles
+cd ~/chezmoi-dotfiles
 
-| 系统 | chezmoi | mise |
-|------|---------|------|
-| Windows | `winget install --id twpayne.chezmoi --exact` | `winget install --id jdx.mise --exact` |
-| macOS | `brew install chezmoi` | `brew install mise` |
-| Linux | `sh -c "$(curl -fsLS get.chezmoi.io)"` | `curl https://mise.jdx.dev/install.sh \| sh` |
-
-### 2. 初始化配置
-
-```shell
-# 方式 A：HTTPS + 令牌（将 <github_api_token> 换成你的 PAT）
-chezmoi init --apply https://<github_api_token>@github.com/yangsx95/chezmoi.git
-
-# 方式 B：SSH（本机已添加 GitHub SSH 公钥时）
-# chezmoi init --apply git@github.com:yangsx95/chezmoi.git
-
-# 安装 mise 声明的工具（.mise.toml / .tool-versions）
-mise install
+# 2. 执行安装脚本（自动检测 WSL，安装 chezmoi + mise + 工具链）
+chmod +x setup.sh && ./setup.sh
 ```
 
-### 3. 日常操作
+**前置要求**：
+- WSL2 已安装并运行（Ubuntu 24.04 推荐）
+- SSH 密钥已配置到 GitHub（`ssh -T git@github.com`）
+- （可选）Windows 侧安装 [Windows Terminal](https://aka.ms/terminal) 作为终端
 
-```shell
+### macOS
+
+```bash
+git clone git@github.com:yangsx95/chezmoi.git ~/chezmoi-dotfiles
+cd ~/chezmoi-dotfiles
+chmod +x setup.sh && ./setup.sh
+```
+
+> **前置要求**：需先安装 [Homebrew](https://brew.sh/)。
+
+### 已有 chezmoi 的更新
+
+```bash
 chezmoi update
-chezmoi edit <文件名>
-chezmoi apply
-cd $(chezmoi source-path)
 ```
 
-在 **Windows PowerShell** 中，最后一行建议写为：`cd (chezmoi source-path)`。
+---
 
-## 统一安装脚本
+## 安装脚本做了什么
 
-脚本可自动检测系统、安装缺失的 chezmoi / mise，并执行 `chezmoi init` 或 `chezmoi update` 以及 `mise install`。
+`setup.sh` 依次执行：
 
-| 系统 | 用法 |
+| 步骤 | 说明 |
 |------|------|
-| Windows | 在**本仓库根目录**（含 `setup.ps1`）下用 **PowerShell 7+** 执行 `.\setup.ps1` |
-| Linux / macOS / WSL | 在**本仓库根目录**执行 `chmod +x setup.sh && ./setup.sh` |
+| 1. 检测系统 | 自动识别 macOS / Linux / WSL |
+| 2. 安装 chezmoi | macOS 用 brew，Linux/WSL 用官方脚本 |
+| 3. 安装 mise | 同上 |
+| 4. chezmoi init/update | 初始化或更新 dotfiles 到 `$HOME` |
+| 5. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、Go、Node 等） |
+| 6. Conda（可选） | Miniconda 静默安装到 `~/miniconda3`，`DOTFILES_SKIP_CONDA=1` 跳过 |
+| 7. Clash（可选） | macOS 用 brew 安装 GUI；WSL 打印提示，`DOTFILES_SKIP_CLASH=1` 跳过 |
 
-私有仓库：请先配置 **SSH**，或设置环境变量 **`GITHUB_TOKEN`** / **`DOTFILES_REPO_URL`**。
+---
 
-脚本会依次：检测系统 → 按需安装 chezmoi、mise → 初始化或更新 chezmoi → `mise install` → **可选 Conda** → **可选 Clash 客户端**（见下两节）。
+## 包含的配置
 
-执行完成后，一般会安装工具、同步配置并写入环境变量；在已安装 PowerShell / zsh 等的前提下即可使用仓库中的 shell 配置。
+### Shell 环境
 
-### Anaconda / conda（setup 脚本 + `~/.condarc`）
+| 文件 | 说明 |
+|------|------|
+| `.zshrc` | oh-my-zsh 配置，含插件（git、docker、python、node 等）、别名、mise 集成 |
+| `.zprofile` | Login shell PATH 设置 |
+| `.proxyrc` | HTTP 代理开关函数（配合 Clash，默认端口 7890） |
+| `.inputrc` | Readline 配置（bash/python 等历史搜索） |
+| `.vimrc` | Vim 基础配置 |
 
-[mise](https://mise.jdx.dev/) 可为项目安装 **CPython**（见 `dot_config/mise/config.toml.tmpl`），与 conda **不冲突**。
+### 开发工具
 
-| 平台 | 默认行为 |
-|------|----------|
-| **Windows** | **`winget install Anaconda.Anaconda3`**（完整发行版，非 Miniconda），静默安装到 **`D:\Anaconda3`**（可用环境变量覆盖） |
-| **macOS** | `brew install --cask miniconda`（需已安装 Homebrew） |
-| **Linux / WSL** | 官方脚本静默安装到 **`~/miniconda3`** |
+| 文件 | 说明 |
+|------|------|
+| `.config/mise/config.toml` | mise 全局工具：Java (zulu-8/17/21)、Python、Go、Node (20/22/24)、maven、gradle |
+| `.condarc` | Conda 镜像源（defaults + conda-forge） |
+| `.config/pip/pip.conf` | pip 阿里云镜像 |
+| `.npmrc` | npm 全局配置 |
+| `.gitconfig` | Git 全局配置（用户信息、别名、编码） |
+| `.gitignore` | 全局 Git 忽略（IDE、系统文件） |
+| `.gitattributes` | Git 换行符处理 |
+| `.ssh/config` | SSH 客户端配置（GitHub via 443 端口） |
 
-**Windows 下路径约定（可在 `.chezmoi.toml.tmpl` 的 `[data]` 中修改后 `chezmoi apply`）：**
+### Java 生态
 
-| 项 | 默认 |
-|----|------|
-| Anaconda 安装根目录 | `D:/Anaconda3`（`conda_root`，与 `setup.ps1` 中 `DOTFILES_CONDA_ROOT` 一致） |
-| 包下载缓存 `pkgs_dirs` | `D:/conda/pkgs` |
-| 虚拟环境目录 `envs_dirs` | `D:/conda/envs` |
+| 文件 | 说明 |
+|------|------|
+| `.m2/settings.xml` | Maven 阿里云镜像 + 本地仓库路径 |
+| `.gradle/gradle.properties` | Gradle 构建优化（缓存、并行、守护进程） |
+| `.gradle/init.gradle` | Gradle 仓库优先级（mavenLocal → 阿里云 → Maven Central） |
 
-上述后两项由 **`dot_condarc.tmpl`** 生成 **`%USERPROFILE%\.condarc`**，在安装 Anaconda **之后**请执行 **`chezmoi apply`**，确保缓存与环境目录指向 D 盘。若先改安装盘，请同时改 `conda_root` 与 `DOTFILES_CONDA_ROOT`，再 `chezmoi apply`。
+### 容器与 CI
 
-仅改安装目录（不改 winget 包名）：
+| 文件 | 说明 |
+|------|------|
+| `.docker/daemon.json` | Docker 镜像加速器（中国镜像） |
+| `.config/gh/config.yml` | GitHub CLI 配置（SSH 协议） |
 
-```powershell
-$env:DOTFILES_CONDA_ROOT = "E:\Anaconda3"
-.\setup.ps1
-```
+---
 
-**跳过 conda 安装**（仅 chezmoi + mise）：
+## WSL 特有说明
 
-```powershell
-$env:DOTFILES_SKIP_CONDA = "1"
-.\setup.ps1
-```
+### 网络
 
-```bash
-export DOTFILES_SKIP_CONDA=1
-./setup.sh
-```
-
-安装后若当前终端仍无 `conda`，请**新开终端**，并按提示执行 `conda init`（PowerShell / zsh / bash）。
-
-### Clash 客户端（可选，setup 脚本）
-
-可与下方 **`proxy_url`（默认 `http://127.0.0.1:7890`）** 配合：先装 **Clash 系 GUI**，在软件里开启**系统代理**或 **Mixed Port**，端口与 `proxy_url` 一致即可。
-
-| 平台 | 默认行为 |
-|------|----------|
-| **Windows**（`setup.ps1`） | `winget install --source winget …`（仅 **winget** 源，避免连不上 **Microsoft Store** 源时报错 `msstore` / `0x80072efd`） |
-| **macOS**（`setup.sh`） | `brew install --cask clash-verge-rev` |
-| **Linux / WSL** | 脚本仅打印说明，请自行安装 [Release](https://github.com/clash-verge-rev/clash-verge-rev/releases) 或使用发行版包 |
-
-若更习惯 **Clash for Windows**（旧版界面），在运行 `setup.ps1` 前：
+仓库包含 `.wslconfig`（`networkingMode=mirrored`），可使 WSL2 与 Windows 共享 localhost：
 
 ```powershell
-$env:DOTFILES_CLASH_WINGET_ID = "Fndroid.ClashForWindows"
-.\setup.ps1
+# 在 Windows PowerShell 中执行（chezmoi 无法自动部署到 Windows 侧）
+copy .\dot_wslconfig.tmpl $env:USERPROFILE\.wslconfig
+wsl --shutdown
+wsl
 ```
 
-**跳过 Clash 安装**：
+### 代理
 
-```powershell
-$env:DOTFILES_SKIP_CLASH = "1"
-.\setup.ps1
-```
+WSL2 mirrored 模式下，Windows 上的 Clash 代理可直接通过 `127.0.0.1:7890` 访问。登录 shell 会自动加载 `~/.proxyrc`。
 
-```bash
-export DOTFILES_SKIP_CLASH=1
-./setup.sh
-```
-
-若手动执行 `winget install` 仍提示 **搜索源时失败: msstore**，请加上 **`--source winget`**，或先修复网络/代理后再试。
-
-## HTTP 代理（可选关闭）
-
-登录 shell 时会根据 chezmoi 中的 `proxy_url` 设置 `http_proxy`、`https_proxy` 等（便于配合 Clash 等）。若不需要自动走代理：
-
-- **改地址**：编辑数据源中的 `.chezmoi.toml.tmpl` 的 `proxy_url`，再 `chezmoi apply`。
-- **长期关闭（新开终端生效）**：环境变量 `DOTFILES_USE_PROXY=0`（或 `false` / `off` / `no`），或创建空文件 `~/.config/dotfiles/no-proxy`（Windows：`%USERPROFILE%\.config\dotfiles\no-proxy`）。
-
+禁用代理：
 ```bash
 mkdir -p ~/.config/dotfiles && touch ~/.config/dotfiles/no-proxy
+# 或 export DOTFILES_USE_PROXY=0
 ```
 
-```powershell
-New-Item -ItemType File -Force -Path (Join-Path $HOME '.config/dotfiles/no-proxy')
+当前会话切换：`proxy_on` / `proxy_off`
+
+### GUI 支持
+
+如需在 WSL 中运行 GUI 应用（IDE、浏览器等），在 Windows 侧安装 [VcXsrv](https://sourceforge.net/projects/vcxsrv/) 或 [GWSL](https://github.com/niclas-ericsson/GWSL)。
+
+---
+
+## GitHub 令牌
+
+`GITHUB_API_TOKEN` 用于 API 调用（非仓库克隆）。设置方式：
+
+1. **环境变量**（优先）：`export GITHUB_TOKEN=ghp_xxx`
+2. **本地 chezmoi 配置**：`chezmoi edit-config`，在 `[data]` 中添加 `github_api_token = "ghp_xxx"`
+
+> 不要将令牌写入 `.chezmoi.toml.tmpl` 或提交到 Git。
+
+---
+
+## 日常使用
+
+```bash
+chezmoi update          # 拉取并应用最新配置
+chezmoi edit ~/.zshrc   # 编辑配置文件
+chezmoi diff            # 查看本地变更
+chezmoi apply           # 应用变更
+cd $(chezmoi source-path)  # 进入仓库目录
 ```
-- **当前会话**：PowerShell 使用 `proxy_off` / `proxy_on`；Bash/Zsh（已加载 `~/.proxyrc`）同样。
 
-## mise 数据目录（Windows PowerShell）
+---
 
-`~/.profile.ps1` 会设置 `MISE_DATA_DIR` 并补齐 PATH（shims、Python Scripts）。优先级：
+## 目录结构
 
-1. 已设置的环境变量 **`MISE_DATA_DIR`**（不覆盖）
-2. 数据源 `.chezmoi.toml.tmpl` 中的 **`mise_data_dir`**（默认 `D:/mise`），修改后 `chezmoi apply`
-3. 本机 `~/.config/chezmoi/chezmoi.toml` 的 `[data]` 中合并同名项
-
-## GitHub 个人访问令牌创建指南
-
-创建后把值写入本地 `chezmoi.toml` 的 `[data].github_api_token`（勿提交到 git），见上文。
-
-1. 打开 [GitHub](https://github.com) 并登录  
-2. Settings → Developer settings → Personal access tokens → Tokens (classic)  
-3. Generate new token (classic)，勾选 **`repo`**  
-4. 生成后复制保存（只显示一次）
+```
+~
+├── .zshrc / .zprofile / .proxyrc     # Shell 配置
+├── .inputrc / .vimrc                 # 终端工具配置
+├── .gitconfig / .gitignore / .gitattributes  # Git 配置
+├── .condarc                          # Conda 配置
+├── .npmrc                            # npm 配置
+├── .config/
+│   ├── mise/config.toml              # mise 工具版本
+│   ├── pip/pip.conf                  # pip 镜像
+│   └── gh/config.yml                 # GitHub CLI
+├── .ssh/config                       # SSH 配置
+├── .m2/settings.xml                  # Maven 配置
+├── .gradle/                          # Gradle 配置
+└── .docker/daemon.json               # Docker 镜像加速
+```
