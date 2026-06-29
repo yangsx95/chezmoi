@@ -322,11 +322,18 @@ init_or_update_chezmoi() {
         echo -e "${CYAN}已找到 chezmoi 仓库，正在尝试更新...${NC}"
 
         git -C "$source_path" remote set-url origin "$repo_url"
+        local current_branch
+        current_branch="$(git -C "$source_path" branch --show-current 2>/dev/null || true)"
+        if [ -n "$current_branch" ]; then
+            git -C "$source_path" config "branch.${current_branch}.remote" origin
+            git -C "$source_path" config "branch.${current_branch}.merge" refs/heads/main
+        fi
+
         if chezmoi update --force; then
             echo -e "${GREEN}chezmoi 更新完成${NC}"
         else
             echo -e "${RED}更新失败${NC}"
-            echo -e "${YELLOW}可能是因为本地文件被修改，需要重新初始化配置${NC}"
+            echo -e "${YELLOW}可能是因为本地文件被修改，或 chezmoi 源仓库需要重新初始化配置${NC}"
 
             # 询问用户是否执行 init
             read -p "更新失败，是否强制重新初始化？(y/N): " confirm
