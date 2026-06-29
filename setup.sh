@@ -16,6 +16,17 @@ CYAN='\033[0;36m'
 WHITE='\033[0;37m'
 NC='\033[0m' # No Color
 
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    echo -e "${RED}请不要用 sudo/root 运行整个脚本。${NC}"
+    echo -e "${YELLOW}chezmoi 会使用当前用户的 HOME；root 运行会写入 /root/.local/share/chezmoi。${NC}"
+    if [ -n "${SUDO_USER:-}" ]; then
+        echo -e "${CYAN}请改用普通用户执行: sudo -u ${SUDO_USER} -H bash setup.sh${NC}"
+    else
+        echo -e "${CYAN}请切换到你的普通用户后执行: bash setup.sh${NC}"
+    fi
+    exit 1
+fi
+
 # Ensure tools installed into user-local paths are available in this run.
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
