@@ -55,7 +55,7 @@ chezmoi update
 | 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、uv、Go、Node 等） |
 | 8. Clash（可选） | macOS 用 brew 安装 GUI；Linux/WSL 尝试安装 DEB/AppImage，`DOTFILES_SKIP_CLASH=1` 跳过 |
 | 9. VS Code（可选） | macOS 用 brew cask；Linux/WSL 配置 Microsoft apt 源安装 `code`，`DOTFILES_SKIP_VSCODE=1` 跳过 |
-| 10. JetBrains Toolbox（可选） | macOS 用 brew cask；Linux/WSL 下载官方 Toolbox，用于安装 IntelliJ IDEA 等 IDE，`DOTFILES_SKIP_JETBRAINS_TOOLBOX=1` 跳过 |
+| 10. JetBrains Toolbox（可选） | macOS 用 brew cask；Linux/WSL 下载官方 Toolbox，`DOTFILES_SKIP_JETBRAINS_TOOLBOX=1` 跳过 |
 | 11. GitHub Desktop（可选） | macOS 用官方 Homebrew cask；Linux/WSL 使用 `shiftkey/desktop` 社区 DEB 构建，`DOTFILES_SKIP_GITHUB_DESKTOP=1` 跳过 |
 
 ---
@@ -125,12 +125,6 @@ mkdir -p ~/.config/dotfiles && touch ~/.config/dotfiles/no-proxy
 ```
 
 当前会话切换：`proxy_on` / `proxy_off`
-
-### GUI 支持
-
-如需在 WSL 中运行 GUI 应用（IDE、浏览器等），在 Windows 侧安装 [VcXsrv](https://sourceforge.net/projects/vcxsrv/) 或 [GWSL](https://github.com/niclas-ericsson/GWSL)。
-
----
 
 ## 日常使用
 

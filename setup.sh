@@ -45,11 +45,8 @@ fi
 
 echo -e "${GREEN}检测到系统类型: $OS${NC}"
 
-# WSL 额外提示
 if [ "$OS" = "wsl" ]; then
     echo -e "${CYAN}检测到 WSL 环境。${NC}"
-    echo -e "${YELLOW}  • 建议在 Windows 侧安装 VcXsrv/GWSL 以支持 X11 GUI${NC}"
-    echo -e "${YELLOW}  • 将 ~/.wslconfig 手动复制到 Windows %USERPROFILE% 以启用 mirrored 网络模式${NC}"
 fi
 
 # ────────────────────────────────────────
@@ -465,7 +462,6 @@ _install_clash_appimage() {
         chmod +x "$APPIMAGE_PATH"
         echo -e "${GREEN}Clash Verge Rev AppImage 已安装到 ${APPIMAGE_PATH}${NC}"
         echo -e "${YELLOW}  • 确保 \$HOME/.local/bin 在 PATH 中${NC}"
-        echo -e "${YELLOW}  • WSL 用户需安装 VcXsrv/GWSL 以支持 GUI${NC}"
     else
         echo -e "${RED}AppImage 下载失败${NC}"
         echo -e "${YELLOW}请手动安装: https://github.com/${repo}/releases${NC}"
@@ -528,7 +524,7 @@ install_vscode() {
 }
 
 # ────────────────────────────────────────
-# JetBrains Toolbox（用于安装 IntelliJ IDEA 等 JetBrains IDE）
+# JetBrains Toolbox
 # 跳过：DOTFILES_SKIP_JETBRAINS_TOOLBOX=1
 # ────────────────────────────────────────
 install_jetbrains_toolbox() {
@@ -604,10 +600,6 @@ install_jetbrains_toolbox() {
             rm -rf "$TMP_TAR" "$TMP_DIR"
 
             echo -e "${GREEN}JetBrains Toolbox 已安装到 ${INSTALL_DIR}${NC}"
-            echo -e "${YELLOW}首次运行 jetbrains-toolbox 后，可在 Toolbox 内安装 IntelliJ IDEA。${NC}"
-            if [ "$OS" = "wsl" ]; then
-                echo -e "${YELLOW}WSL 用户需安装 VcXsrv/GWSL 或使用 WSLg 以支持 GUI。${NC}"
-            fi
             ;;
         *)
             echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 JetBrains Toolbox。${NC}"
@@ -689,9 +681,6 @@ install_github_desktop() {
             rm -f "$TMP_DEB"
 
             echo -e "${YELLOW}Linux/WSL 使用的是 shiftkey/desktop 社区构建，不是 GitHub 官方 Linux 版。${NC}"
-            if [ "$OS" = "wsl" ]; then
-                echo -e "${YELLOW}WSL 用户需安装 VcXsrv/GWSL 或使用 WSLg 以支持 GUI。${NC}"
-            fi
             ;;
         *)
             echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 GitHub Desktop。${NC}"
