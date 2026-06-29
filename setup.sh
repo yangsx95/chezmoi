@@ -93,6 +93,7 @@ install_system_packages() {
                 fd-find
                 git
                 git-extras
+                gnupg
                 htop
                 jq
                 libssl-dev
@@ -354,67 +355,6 @@ install_mise_tools() {
 }
 
 # ────────────────────────────────────────
-# 安装 Conda（默认 Miniconda；完整版可设 DOTFILES_CONDA_FULL=1 使用 Anaconda3）
-# 跳过：DOTFILES_SKIP_CONDA=1
-# ────────────────────────────────────────
-install_conda() {
-    if [ "${DOTFILES_SKIP_CONDA:-}" = "1" ]; then
-        echo -e "${YELLOW}已设置 DOTFILES_SKIP_CONDA=1，跳过 conda 安装。${NC}"
-        return
-    fi
-    if command -v conda &> /dev/null; then
-        echo -e "${GREEN}conda 已在 PATH 中，跳过安装。${NC}"
-        return
-    fi
-
-    case "$OS" in
-        macos)
-            if ! command -v brew &> /dev/null; then
-                echo -e "${YELLOW}未检测到 Homebrew，请手动安装: brew install --cask miniconda${NC}"
-                return
-            fi
-            echo -e "${CYAN}通过 Homebrew 安装 miniconda ...${NC}"
-            if brew install --cask miniconda; then
-                echo -e "${GREEN}miniconda 安装完成。新开终端后执行: conda init zsh${NC}"
-            else
-                echo -e "${RED}brew 安装 miniconda 失败${NC}"
-            fi
-            ;;
-        linux|wsl)
-            if [ "${DOTFILES_CONDA_FULL:-}" = "1" ]; then
-                echo -e "${YELLOW}完整 Anaconda 请从官网下载安装；此处仅支持 Miniconda 静默安装到 ~/miniconda3${NC}"
-            fi
-            ARCH=$(uname -m)
-            case "$ARCH" in
-                x86_64)  MINI_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" ;;
-                aarch64) MINI_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh" ;;
-                *)
-                    echo -e "${RED}不支持的架构: $ARCH${NC}"
-                    return 1
-                    ;;
-            esac
-            TMP=$(mktemp)
-            echo -e "${CYAN}下载 Miniconda 安装脚本 ...${NC}"
-            if ! curl -fsSL "$MINI_URL" -o "$TMP"; then
-                echo -e "${RED}下载失败${NC}"
-                rm -f "$TMP"
-                return 1
-            fi
-            echo -e "${CYAN}静默安装到 ${HOME}/miniconda3 ...${NC}"
-            bash "$TMP" -b -p "${HOME}/miniconda3"
-            rm -f "$TMP"
-            # shellcheck disable=SC1091
-            if [ -f "${HOME}/miniconda3/bin/conda" ]; then
-                echo -e "${GREEN}Miniconda 已安装。建议执行: ${HOME}/miniconda3/bin/conda init zsh${NC}"
-            fi
-            ;;
-        *)
-            echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 conda。${NC}"
-            ;;
-    esac
-}
-
-# ────────────────────────────────────────
 # Clash 客户端（macOS：Homebrew；Linux/WSL：AppImage 或 DEB）
 # 跳过：DOTFILES_SKIP_CLASH=1
 # ────────────────────────────────────────
@@ -504,6 +444,233 @@ _install_clash_appimage() {
 }
 
 # ────────────────────────────────────────
+# VS Code（macOS：Homebrew；Linux/WSL：Microsoft apt 源）
+# 跳过：DOTFILES_SKIP_VSCODE=1
+# ────────────────────────────────────────
+install_vscode() {
+    if [ "${DOTFILES_SKIP_VSCODE:-}" = "1" ]; then
+        echo -e "${YELLOW}已设置 DOTFILES_SKIP_VSCODE=1，跳过 VS Code 安装。${NC}"
+        return
+    fi
+
+    if command -v code &> /dev/null; then
+        echo -e "${GREEN}VS Code 已安装，跳过安装步骤${NC}"
+        return
+    fi
+
+    case "$OS" in
+        macos)
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask visual-studio-code${NC}"
+                return
+            fi
+            echo -e "${CYAN}通过 Homebrew 安装 VS Code (macOS)...${NC}"
+            brew install --cask visual-studio-code || echo -e "${YELLOW}brew 安装 VS Code 失败或已安装${NC}"
+            ;;
+        linux|wsl)
+            if ! command -v apt-get &> /dev/null; then
+                echo -e "${YELLOW}当前 Linux 发行版未检测到 apt-get，跳过 VS Code 自动安装。${NC}"
+                echo -e "${YELLOW}请参考: https://code.visualstudio.com/docs/setup/linux${NC}"
+                return
+            fi
+
+            echo -e "${CYAN}配置 Microsoft apt 源并安装 VS Code（需要 sudo）...${NC}"
+            sudo install -m 0755 -d /etc/apt/keyrings
+            local TMP_KEY
+            TMP_KEY=$(mktemp)
+            if curl -fsSL https://packages.microsoft.com/keys/microsoft.asc -o "$TMP_KEY" \
+                && gpg --dearmor -o "${TMP_KEY}.gpg" "$TMP_KEY" \
+                && sudo install -m 0644 "${TMP_KEY}.gpg" /etc/apt/keyrings/packages.microsoft.gpg; then
+                rm -f "$TMP_KEY" "${TMP_KEY}.gpg"
+            else
+                rm -f "$TMP_KEY" "${TMP_KEY}.gpg"
+                echo -e "${RED}Microsoft apt key 下载或安装失败，跳过 VS Code 安装。${NC}"
+                return 1
+            fi
+
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y code
+            ;;
+        *)
+            echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 VS Code。${NC}"
+            ;;
+    esac
+}
+
+# ────────────────────────────────────────
+# JetBrains Toolbox（用于安装 IntelliJ IDEA 等 JetBrains IDE）
+# 跳过：DOTFILES_SKIP_JETBRAINS_TOOLBOX=1
+# ────────────────────────────────────────
+install_jetbrains_toolbox() {
+    if [ "${DOTFILES_SKIP_JETBRAINS_TOOLBOX:-}" = "1" ]; then
+        echo -e "${YELLOW}已设置 DOTFILES_SKIP_JETBRAINS_TOOLBOX=1，跳过 JetBrains Toolbox 安装。${NC}"
+        return
+    fi
+
+    if command -v jetbrains-toolbox &> /dev/null; then
+        echo -e "${GREEN}JetBrains Toolbox 已安装，跳过安装步骤${NC}"
+        return
+    fi
+
+    case "$OS" in
+        macos)
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask jetbrains-toolbox${NC}"
+                return
+            fi
+            echo -e "${CYAN}通过 Homebrew 安装 JetBrains Toolbox (macOS)...${NC}"
+            brew install --cask jetbrains-toolbox || echo -e "${YELLOW}brew 安装 JetBrains Toolbox 失败或已安装${NC}"
+            ;;
+        linux|wsl)
+            if ! command -v jq &> /dev/null; then
+                echo -e "${YELLOW}未检测到 jq，无法解析 JetBrains Toolbox 最新版本，跳过。${NC}"
+                return
+            fi
+
+            local API_URL="https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release"
+            local DOWNLOAD_KEY="linux"
+            local ARCH
+            ARCH=$(uname -m)
+            if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+                DOWNLOAD_KEY="linuxARM64"
+            fi
+
+            local TOOLBOX_URL
+            TOOLBOX_URL=$(curl -fsSL --max-time 30 "$API_URL" | jq -r ".TBA[0].downloads.${DOWNLOAD_KEY}.link // empty")
+            if [ -z "$TOOLBOX_URL" ]; then
+                echo -e "${YELLOW}无法获取 JetBrains Toolbox 下载地址，请手动安装: https://www.jetbrains.com/toolbox-app/${NC}"
+                return
+            fi
+
+            local TMP_TAR TMP_DIR INSTALL_DIR TOOLBOX_BIN
+            TMP_TAR=$(mktemp /tmp/jetbrains-toolbox.XXXXXX.tar.gz)
+            TMP_DIR=$(mktemp -d /tmp/jetbrains-toolbox.XXXXXX)
+            INSTALL_DIR="${HOME}/.local/share/JetBrains/Toolbox"
+
+            echo -e "${CYAN}下载 JetBrains Toolbox: ${TOOLBOX_URL} ...${NC}"
+            if ! curl -fsSL --max-time 180 -o "$TMP_TAR" "$TOOLBOX_URL"; then
+                echo -e "${RED}JetBrains Toolbox 下载失败${NC}"
+                rm -rf "$TMP_TAR" "$TMP_DIR"
+                return 1
+            fi
+
+            echo -e "${CYAN}安装 JetBrains Toolbox 到 ${INSTALL_DIR} ...${NC}"
+            if ! tar -xzf "$TMP_TAR" -C "$TMP_DIR"; then
+                echo -e "${RED}JetBrains Toolbox 解压失败${NC}"
+                rm -rf "$TMP_TAR" "$TMP_DIR"
+                return 1
+            fi
+
+            TOOLBOX_BIN=$(find "$TMP_DIR" -type f -name jetbrains-toolbox -perm -111 | head -1)
+            if [ -z "$TOOLBOX_BIN" ]; then
+                echo -e "${RED}未在安装包中找到 jetbrains-toolbox 可执行文件${NC}"
+                rm -rf "$TMP_TAR" "$TMP_DIR"
+                return 1
+            fi
+
+            mkdir -p "$INSTALL_DIR" "$HOME/.local/bin"
+            cp -R "$(dirname "$TOOLBOX_BIN")/." "$INSTALL_DIR/"
+            ln -sf "$INSTALL_DIR/jetbrains-toolbox" "$HOME/.local/bin/jetbrains-toolbox"
+            rm -rf "$TMP_TAR" "$TMP_DIR"
+
+            echo -e "${GREEN}JetBrains Toolbox 已安装到 ${INSTALL_DIR}${NC}"
+            echo -e "${YELLOW}首次运行 jetbrains-toolbox 后，可在 Toolbox 内安装 IntelliJ IDEA。${NC}"
+            if [ "$OS" = "wsl" ]; then
+                echo -e "${YELLOW}WSL 用户需安装 VcXsrv/GWSL 或使用 WSLg 以支持 GUI。${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 JetBrains Toolbox。${NC}"
+            ;;
+    esac
+}
+
+# ────────────────────────────────────────
+# GitHub Desktop（macOS：官方版；Linux/WSL：shiftkey 社区构建）
+# 跳过：DOTFILES_SKIP_GITHUB_DESKTOP=1
+# ────────────────────────────────────────
+install_github_desktop() {
+    if [ "${DOTFILES_SKIP_GITHUB_DESKTOP:-}" = "1" ]; then
+        echo -e "${YELLOW}已设置 DOTFILES_SKIP_GITHUB_DESKTOP=1，跳过 GitHub Desktop 安装。${NC}"
+        return
+    fi
+
+    case "$OS" in
+        macos)
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask github${NC}"
+                return
+            fi
+            if brew list --cask github &> /dev/null; then
+                echo -e "${GREEN}GitHub Desktop 已安装，跳过安装步骤${NC}"
+                return
+            fi
+            echo -e "${CYAN}通过 Homebrew 安装 GitHub Desktop (macOS)...${NC}"
+            brew install --cask github || echo -e "${YELLOW}brew 安装 GitHub Desktop 失败或已安装${NC}"
+            ;;
+        linux|wsl)
+            if command -v github-desktop &> /dev/null; then
+                echo -e "${GREEN}GitHub Desktop 已安装，跳过安装步骤${NC}"
+                return
+            fi
+            if ! command -v apt-get &> /dev/null || ! command -v dpkg &> /dev/null; then
+                echo -e "${YELLOW}当前 Linux 发行版未检测到 apt/dpkg，跳过 GitHub Desktop 自动安装。${NC}"
+                return
+            fi
+            if ! command -v jq &> /dev/null; then
+                echo -e "${YELLOW}未检测到 jq，无法解析 GitHub Desktop 最新版本，跳过。${NC}"
+                return
+            fi
+
+            local GH_DESKTOP_REPO="shiftkey/desktop"
+            local API_URL="https://api.github.com/repos/${GH_DESKTOP_REPO}/releases/latest"
+            local ARCH ASSET_PATTERN DESKTOP_URL
+            ARCH=$(dpkg --print-architecture)
+            case "$ARCH" in
+                amd64) ASSET_PATTERN="(amd64|x86_64).*\\.deb$" ;;
+                arm64) ASSET_PATTERN="(arm64|aarch64).*\\.deb$" ;;
+                *)
+                    echo -e "${YELLOW}GitHub Desktop 社区构建暂未配置架构 ${ARCH} 的自动安装。${NC}"
+                    return
+                    ;;
+            esac
+
+            DESKTOP_URL=$(curl -fsSL --max-time 30 "$API_URL" | jq -r ".assets[].browser_download_url | select(test(\"${ASSET_PATTERN}\"; \"i\"))" | head -1)
+            if [ -z "$DESKTOP_URL" ]; then
+                echo -e "${YELLOW}无法获取 GitHub Desktop Linux DEB 下载地址，请手动安装: https://github.com/${GH_DESKTOP_REPO}/releases${NC}"
+                return
+            fi
+
+            local TMP_DEB
+            TMP_DEB=$(mktemp /tmp/github-desktop.XXXXXX.deb)
+            echo -e "${CYAN}下载 GitHub Desktop 社区构建: ${DESKTOP_URL} ...${NC}"
+            if ! curl -fsSL --max-time 180 -o "$TMP_DEB" "$DESKTOP_URL"; then
+                echo -e "${RED}GitHub Desktop 下载失败${NC}"
+                rm -f "$TMP_DEB"
+                return 1
+            fi
+
+            echo -e "${CYAN}安装 GitHub Desktop DEB 包（需要 sudo）...${NC}"
+            if sudo dpkg -i "$TMP_DEB" 2>/dev/null; then
+                echo -e "${GREEN}GitHub Desktop 安装完成${NC}"
+            else
+                sudo apt-get install -f -y 2>/dev/null && sudo dpkg -i "$TMP_DEB" && echo -e "${GREEN}GitHub Desktop 安装完成（依赖已修复）${NC}"
+            fi
+            rm -f "$TMP_DEB"
+
+            echo -e "${YELLOW}Linux/WSL 使用的是 shiftkey/desktop 社区构建，不是 GitHub 官方 Linux 版。${NC}"
+            if [ "$OS" = "wsl" ]; then
+                echo -e "${YELLOW}WSL 用户需安装 VcXsrv/GWSL 或使用 WSLg 以支持 GUI。${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}当前 OS=$OS，未配置自动安装 GitHub Desktop。${NC}"
+            ;;
+    esac
+}
+
+# ────────────────────────────────────────
 # 主流程
 # ────────────────────────────────────────
 main() {
@@ -527,11 +694,17 @@ main() {
     # 5. 安装 mise 声明的工具
     install_mise_tools
 
-    # 6. 安装 Miniconda / conda（可选跳过）
-    install_conda
-
-    # 7. Clash 客户端（可选跳过）
+    # 6. Clash 客户端（可选跳过）
     install_clash
+
+    # 7. VS Code（可选跳过）
+    install_vscode
+
+    # 8. JetBrains Toolbox（可选跳过）
+    install_jetbrains_toolbox
+
+    # 9. GitHub Desktop（可选跳过）
+    install_github_desktop
 
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}环境配置完成！${NC}"

@@ -13,7 +13,7 @@
 git clone git@github.com:yangsx95/chezmoi.git ~/chezmoi-dotfiles
 cd ~/chezmoi-dotfiles
 
-# 2. 执行安装脚本（自动检测 WSL，安装基础包 + zsh + chezmoi + mise + 工具链）
+# 2. 执行安装脚本（自动检测 WSL，安装基础包 + zsh + chezmoi + mise/uv 工具链 + IDE 工具）
 chmod +x setup.sh && ./setup.sh
 ```
 
@@ -52,9 +52,11 @@ chezmoi update
 | 4. 安装 mise | macOS 用 brew，Linux/WSL 用官方脚本 |
 | 5. 安装 zsh 栈 | 安装 oh-my-zsh、autosuggestions、syntax-highlighting，并尝试切换默认 shell 到 zsh |
 | 6. chezmoi init/update | 初始化或更新 dotfiles 到 `$HOME` |
-| 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、Go、Node 等） |
-| 8. Conda（可选） | Miniconda 静默安装到 `~/miniconda3`，`DOTFILES_SKIP_CONDA=1` 跳过 |
-| 9. Clash（可选） | macOS 用 brew 安装 GUI；WSL 打印提示，`DOTFILES_SKIP_CLASH=1` 跳过 |
+| 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、uv、Go、Node 等） |
+| 8. Clash（可选） | macOS 用 brew 安装 GUI；Linux/WSL 尝试安装 DEB/AppImage，`DOTFILES_SKIP_CLASH=1` 跳过 |
+| 9. VS Code（可选） | macOS 用 brew cask；Linux/WSL 配置 Microsoft apt 源安装 `code`，`DOTFILES_SKIP_VSCODE=1` 跳过 |
+| 10. JetBrains Toolbox（可选） | macOS 用 brew cask；Linux/WSL 下载官方 Toolbox，用于安装 IntelliJ IDEA 等 IDE，`DOTFILES_SKIP_JETBRAINS_TOOLBOX=1` 跳过 |
+| 11. GitHub Desktop（可选） | macOS 用官方 Homebrew cask；Linux/WSL 使用 `shiftkey/desktop` 社区 DEB 构建，`DOTFILES_SKIP_GITHUB_DESKTOP=1` 跳过 |
 
 ---
 
@@ -74,8 +76,7 @@ chezmoi update
 
 | 文件 | 说明 |
 |------|------|
-| `.config/mise/config.toml` | mise 全局工具：Java (zulu-8/17/21)、Python、Go、Node (20/22/24)、maven、gradle |
-| `.condarc` | Conda 镜像源（defaults + conda-forge） |
+| `.config/mise/config.toml` | mise 全局工具：Java (zulu-8/17/21)、Python、uv、Go、Node (20/22/24)、maven、gradle |
 | `.config/pip/pip.conf` | pip 阿里云镜像 |
 | `.npmrc` | npm 全局配置 |
 | `.gitconfig` | Git 全局配置（用户信息、别名、编码） |
@@ -161,7 +162,6 @@ cd $(chezmoi source-path)  # 进入仓库目录
 ├── .zshrc / .zprofile / .proxyrc     # Shell 配置
 ├── .inputrc / .vimrc                 # 终端工具配置
 ├── .gitconfig / .gitignore / .gitattributes  # Git 配置
-├── .condarc                          # Conda 配置
 ├── .npmrc                            # npm 配置
 ├── .config/
 │   ├── mise/config.toml              # mise 工具版本
