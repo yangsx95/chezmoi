@@ -132,17 +132,6 @@ mkdir -p ~/.config/dotfiles && touch ~/.config/dotfiles/no-proxy
 
 ---
 
-## GitHub 令牌
-
-`GITHUB_API_TOKEN` 用于 API 调用（非仓库克隆）。设置方式：
-
-1. **环境变量**（优先）：`export GITHUB_TOKEN=ghp_xxx`
-2. **本地 chezmoi 配置**：`chezmoi edit-config`，在 `[data]` 中添加 `github_api_token = "ghp_xxx"`
-
-> 不要将令牌写入 `.chezmoi.toml.tmpl` 或提交到 Git。
-
----
-
 ## 日常使用
 
 ```bash

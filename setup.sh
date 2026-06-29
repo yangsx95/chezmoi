@@ -124,23 +124,13 @@ install_system_packages() {
 }
 
 # ────────────────────────────────────────
-# GitHub 仓库：DOTFILES_REPO_URL > GITHUB_TOKEN/GH_TOKEN > SSH
+# GitHub 仓库：默认使用 public HTTPS；可用 DOTFILES_REPO_URL 覆盖
 # ────────────────────────────────────────
 SLUG="${DOTFILES_GITHUB_SLUG:-yangsx95/chezmoi}"
 if [ -n "${DOTFILES_REPO_URL:-}" ]; then
     REPO_URL="$DOTFILES_REPO_URL"
-elif [ -n "${GITHUB_TOKEN:-}" ] || [ -n "${GH_TOKEN:-}" ]; then
-    TOKEN="${GITHUB_TOKEN:-$GH_TOKEN}"
-    REPO_URL="https://${TOKEN}@github.com/${SLUG}.git"
 else
-    REPO_URL="git@github.com:${SLUG}.git"
-    echo -e "${YELLOW}未设置 GITHUB_TOKEN：将使用 SSH ${REPO_URL}${NC}"
-    # 检查 SSH 密钥是否存在，不存在则提示生成
-    if [ ! -f "$HOME/.ssh/id_ed25519" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
-        echo -e "${YELLOW}未检测到 SSH 密钥，建议生成:${NC}"
-        echo -e "${WHITE}  ssh-keygen -t ed25519 -C \"${GIT_AUTHOR_EMAIL:-your@email.com}\"${NC}"
-        echo -e "${WHITE}  cat ~/.ssh/id_ed25519.pub  # 添加到 GitHub Settings > SSH Keys${NC}"
-    fi
+    REPO_URL="https://github.com/${SLUG}.git"
 fi
 
 # ────────────────────────────────────────
