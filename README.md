@@ -13,7 +13,7 @@
 git clone git@github.com:yangsx95/chezmoi.git ~/chezmoi-dotfiles
 cd ~/chezmoi-dotfiles
 
-# 2. 执行安装脚本（自动检测 WSL，安装 chezmoi + mise + 工具链）
+# 2. 执行安装脚本（自动检测 WSL，安装基础包 + zsh + chezmoi + mise + 工具链）
 chmod +x setup.sh && ./setup.sh
 ```
 
@@ -47,12 +47,14 @@ chezmoi update
 | 步骤 | 说明 |
 |------|------|
 | 1. 检测系统 | 自动识别 macOS / Linux / WSL |
-| 2. 安装 chezmoi | macOS 用 brew，Linux/WSL 用官方脚本 |
-| 3. 安装 mise | 同上 |
-| 4. chezmoi init/update | 初始化或更新 dotfiles 到 `$HOME` |
-| 5. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、Go、Node 等） |
-| 6. Conda（可选） | Miniconda 静默安装到 `~/miniconda3`，`DOTFILES_SKIP_CONDA=1` 跳过 |
-| 7. Clash（可选） | macOS 用 brew 安装 GUI；WSL 打印提示，`DOTFILES_SKIP_CLASH=1` 跳过 |
+| 2. 安装系统基础包 | Ubuntu/WSL 用 apt 安装 zsh、git、curl、build-essential、jq、ripgrep 等；macOS 用 brew |
+| 3. 安装 chezmoi | macOS 用 brew，Linux/WSL 安装到 `~/.local/bin` |
+| 4. 安装 mise | macOS 用 brew，Linux/WSL 用官方脚本 |
+| 5. 安装 zsh 栈 | 安装 oh-my-zsh、autosuggestions、syntax-highlighting，并尝试切换默认 shell 到 zsh |
+| 6. chezmoi init/update | 初始化或更新 dotfiles 到 `$HOME` |
+| 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、Go、Node 等） |
+| 8. Conda（可选） | Miniconda 静默安装到 `~/miniconda3`，`DOTFILES_SKIP_CONDA=1` 跳过 |
+| 9. Clash（可选） | macOS 用 brew 安装 GUI；WSL 打印提示，`DOTFILES_SKIP_CLASH=1` 跳过 |
 
 ---
 

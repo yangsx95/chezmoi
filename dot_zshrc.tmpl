@@ -123,6 +123,11 @@ export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 # GitHub API 令牌（优先环境变量 GITHUB_TOKEN，否则为 chezmoi data.github_api_token）
 export GITHUB_API_TOKEN={{ coalesce (env "GITHUB_TOKEN") .github_api_token | quote }}
 
+# 加载代理配置（可用 DOTFILES_USE_PROXY=0 或 ~/.config/dotfiles/no-proxy 禁用）
+if [ -f ~/.proxyrc ]; then
+    source ~/.proxyrc
+fi
+
 # -------------- 常用别名 --------------
 
 # 基础命令别名
@@ -206,7 +211,9 @@ if [ -f "$ZSH/oh-my-zsh.sh" ]; then
     source "$ZSH/oh-my-zsh.sh"
 fi
 
-eval "$(mise activate zsh)"
+if command -v mise &>/dev/null; then
+    eval "$(mise activate zsh)"
+fi
 
 # 加载本地配置
 if [ -f ~/.zshrc.local ]; then

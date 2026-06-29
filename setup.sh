@@ -16,6 +16,9 @@ CYAN='\033[0;36m'
 WHITE='\033[0;37m'
 NC='\033[0m' # No Color
 
+# Ensure tools installed into user-local paths are available in this run.
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+
 # ────────────────────────────────────────
 # 检测操作系统
 # ────────────────────────────────────────
@@ -48,6 +51,76 @@ if [ "$OS" = "wsl" ]; then
     echo -e "${YELLOW}  • 建议在 Windows 侧安装 VcXsrv/GWSL 以支持 X11 GUI${NC}"
     echo -e "${YELLOW}  • 将 ~/.wslconfig 手动复制到 Windows %USERPROFILE% 以启用 mirrored 网络模式${NC}"
 fi
+
+# ────────────────────────────────────────
+# 函数：安装系统基础依赖
+# ────────────────────────────────────────
+install_system_packages() {
+    echo -e "${YELLOW}检查系统基础依赖...${NC}"
+
+    case $OS in
+        "macos")
+            if ! command -v brew &> /dev/null; then
+                echo -e "${YELLOW}未检测到 Homebrew，请先安装 Homebrew 后继续。${NC}"
+                return
+            fi
+            local brew_packages=(
+                git
+                curl
+                zsh
+                unzip
+                zip
+                jq
+                ripgrep
+                fd
+                tree
+                htop
+                git-extras
+            )
+            echo -e "${CYAN}通过 Homebrew 安装/更新基础工具...${NC}"
+            brew install "${brew_packages[@]}" || echo -e "${YELLOW}部分 Homebrew 包安装失败或已安装，继续执行。${NC}"
+            ;;
+        "linux"|"wsl")
+            if ! command -v apt-get &> /dev/null; then
+                echo -e "${YELLOW}当前 Linux 发行版未检测到 apt-get，跳过系统包自动安装。${NC}"
+                return
+            fi
+
+            local apt_packages=(
+                build-essential
+                ca-certificates
+                curl
+                fd-find
+                git
+                git-extras
+                htop
+                jq
+                libssl-dev
+                openssl
+                pkg-config
+                python3-pygments
+                ripgrep
+                tree
+                unzip
+                wget
+                zip
+                zsh
+            )
+
+            echo -e "${CYAN}通过 apt 安装基础工具（需要 sudo）...${NC}"
+            sudo apt-get update
+            sudo apt-get install -y "${apt_packages[@]}"
+
+            if command -v fdfind &> /dev/null && ! command -v fd &> /dev/null; then
+                mkdir -p "$HOME/.local/bin"
+                ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}未知系统类型，跳过系统包安装。${NC}"
+            ;;
+    esac
+}
 
 # ────────────────────────────────────────
 # GitHub 仓库：DOTFILES_REPO_URL > GITHUB_TOKEN/GH_TOKEN > SSH
@@ -88,13 +161,88 @@ install_chezmoi() {
             brew install chezmoi
             ;;
         "linux"|"wsl")
-            echo -e "${CYAN}使用 curl 安装 chezmoi 到 /usr/local/bin...${NC}"
-            curl -fsSL --max-time 60 get.chezmoi.io | sh -s -- -b /usr/local/bin
-            echo -e "${GREEN}已将 chezmoi 安装到 /usr/local/bin/chezmoi${NC}"
+            echo -e "${CYAN}使用 curl 安装 chezmoi 到 ~/.local/bin...${NC}"
+            mkdir -p "$HOME/.local/bin"
+            curl -fsSL --max-time 60 get.chezmoi.io | sh -s -- -b "$HOME/.local/bin"
+            echo -e "${GREEN}已将 chezmoi 安装到 $HOME/.local/bin/chezmoi${NC}"
             ;;
     esac
 
     echo -e "${GREEN}chezmoi 安装成功${NC}"
+}
+
+# ────────────────────────────────────────
+# 函数：安装 oh-my-zsh 和外部插件
+# ────────────────────────────────────────
+install_zsh_stack() {
+    echo -e "${YELLOW}检查 zsh / oh-my-zsh 配置...${NC}"
+
+    if ! command -v zsh &> /dev/null; then
+        echo -e "${YELLOW}zsh 未安装，跳过 oh-my-zsh 配置。${NC}"
+        return
+    fi
+
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        echo -e "${CYAN}安装 oh-my-zsh...${NC}"
+        local omz_installer
+        omz_installer=$(mktemp)
+        if curl -fsSL --max-time 60 https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$omz_installer"; then
+            RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh "$omz_installer"
+        else
+            echo -e "${RED}oh-my-zsh 安装脚本下载失败，跳过。${NC}"
+        fi
+        rm -f "$omz_installer"
+    else
+        echo -e "${GREEN}oh-my-zsh 已安装，跳过。${NC}"
+    fi
+
+    local zsh_custom="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+    mkdir -p "$zsh_custom/plugins"
+
+    install_zsh_plugin "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions" "$zsh_custom/plugins/zsh-autosuggestions"
+    install_zsh_plugin "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting" "$zsh_custom/plugins/zsh-syntax-highlighting"
+
+    set_default_shell_zsh
+}
+
+install_zsh_plugin() {
+    local name="$1"
+    local repo="$2"
+    local dest="$3"
+
+    if [ -d "$dest/.git" ]; then
+        echo -e "${GREEN}${name} 已安装，跳过。${NC}"
+        return
+    fi
+
+    echo -e "${CYAN}安装 zsh 插件: ${name}${NC}"
+    if ! git clone --depth=1 "$repo" "$dest"; then
+        echo -e "${YELLOW}${name} 安装失败，后续可手动重试。${NC}"
+    fi
+}
+
+set_default_shell_zsh() {
+    local zsh_path
+    zsh_path="$(command -v zsh)"
+    local current_shell
+    current_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)"
+
+    if [ "$current_shell" = "$zsh_path" ]; then
+        echo -e "${GREEN}默认 shell 已是 zsh。${NC}"
+        return
+    fi
+
+    if ! grep -qxF "$zsh_path" /etc/shells 2>/dev/null; then
+        echo -e "${CYAN}将 ${zsh_path} 加入 /etc/shells（需要 sudo）...${NC}"
+        echo "$zsh_path" | sudo tee -a /etc/shells > /dev/null
+    fi
+
+    echo -e "${CYAN}设置默认 shell 为 zsh（可能需要输入密码）...${NC}"
+    if chsh -s "$zsh_path"; then
+        echo -e "${GREEN}默认 shell 已设置为 zsh，新开终端后生效。${NC}"
+    else
+        echo -e "${YELLOW}自动切换默认 shell 失败，可手动执行: chsh -s ${zsh_path}${NC}"
+    fi
 }
 
 # ────────────────────────────────────────
@@ -193,6 +341,8 @@ install_mise_tools() {
         return
     fi
 
+    export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+
     echo -e "${CYAN}执行 mise install （安装 .mise.toml / .tool-versions 中声明的工具）...${NC}"
 
     if mise install; then
@@ -255,7 +405,7 @@ install_conda() {
             rm -f "$TMP"
             # shellcheck disable=SC1091
             if [ -f "${HOME}/miniconda3/bin/conda" ]; then
-                echo -e "${GREEN}Miniconda 已安装。请将 ${HOME}/miniconda3/bin 加入 PATH，并执行: ${HOME}/miniconda3/bin/conda init bash${NC}"
+                echo -e "${GREEN}Miniconda 已安装。建议执行: ${HOME}/miniconda3/bin/conda init zsh${NC}"
             fi
             ;;
         *)
@@ -361,20 +511,26 @@ main() {
     echo -e "${CYAN}环境配置初始化/更新脚本开始执行${NC}"
     echo -e "${CYAN}========================================${NC}"
 
-    # 1. 安装依赖工具
+    # 1. 安装系统基础依赖
+    install_system_packages
+
+    # 2. 安装依赖工具
     install_chezmoi
     install_mise
 
-    # 2. 初始化或更新 chezmoi 配置
+    # 3. 安装 zsh / oh-my-zsh 体验
+    install_zsh_stack
+
+    # 4. 初始化或更新 chezmoi 配置
     init_or_update_chezmoi "$REPO_URL"
 
-    # 3. 安装 mise 声明的工具
+    # 5. 安装 mise 声明的工具
     install_mise_tools
 
-    # 4. 安装 Miniconda / conda（可选跳过）
+    # 6. 安装 Miniconda / conda（可选跳过）
     install_conda
 
-    # 5. Clash 客户端（可选跳过）
+    # 7. Clash 客户端（可选跳过）
     install_clash
 
     echo -e "${CYAN}========================================${NC}"
