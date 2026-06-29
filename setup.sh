@@ -68,9 +68,6 @@ systemd=true
 
 [user]
 default=${USER}
-
-[interop]
-appendWindowsPath=false
 EOF
 
     if [ -f /etc/wsl.conf ] && cmp -s "$tmp_file" /etc/wsl.conf; then
