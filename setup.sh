@@ -318,6 +318,16 @@ init_or_update_chezmoi() {
         source_path=""
     fi
 
+    verify_chezmoi_source() {
+        local path
+        path="$(chezmoi source-path 2>/dev/null || true)"
+        if [ -z "$path" ] || ! git -C "$path" rev-parse --is-inside-work-tree &> /dev/null; then
+            echo -e "${RED}chezmoi 源仓库未正确初始化${NC}"
+            echo -e "${YELLOW}请检查 source-path: ${path:-未设置}${NC}"
+            return 1
+        fi
+    }
+
     if [ -n "$source_path" ] && git -C "$source_path" rev-parse --is-inside-work-tree &> /dev/null; then
         echo -e "${CYAN}已找到 chezmoi 仓库，正在尝试更新...${NC}"
 
@@ -344,7 +354,7 @@ init_or_update_chezmoi() {
             fi
 
             echo -e "${CYAN}执行强制重新初始化...${NC}"
-            if chezmoi init --apply --force "$repo_url"; then
+            if chezmoi init --apply --force --branch main "$repo_url" && verify_chezmoi_source; then
                 echo -e "${GREEN}强制重新初始化完成${NC}"
             else
                 echo -e "${RED}强制重新初始化失败${NC}"
@@ -354,7 +364,7 @@ init_or_update_chezmoi() {
     else
         echo -e "${CYAN}未找到 chezmoi 配置，开始初始化...${NC}"
 
-        if chezmoi init --apply "$repo_url"; then
+        if chezmoi init --apply --branch main "$repo_url" && verify_chezmoi_source; then
             echo -e "${GREEN}chezmoi 初始化完成${NC}"
         else
             echo -e "${RED}chezmoi 初始化失败${NC}"
