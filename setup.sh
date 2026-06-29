@@ -229,10 +229,12 @@ set_default_shell_zsh() {
     fi
 
     echo -e "${CYAN}设置默认 shell 为 zsh（可能需要输入密码）...${NC}"
-    if chsh -s "$zsh_path"; then
+    if chsh -s "$zsh_path" "$USER"; then
         echo -e "${GREEN}默认 shell 已设置为 zsh，新开终端后生效。${NC}"
+    elif sudo chsh -s "$zsh_path" "$USER"; then
+        echo -e "${GREEN}默认 shell 已通过 sudo 设置为 zsh，新开终端后生效。${NC}"
     else
-        echo -e "${YELLOW}自动切换默认 shell 失败，可手动执行: chsh -s ${zsh_path}${NC}"
+        echo -e "${YELLOW}自动切换默认 shell 失败，可手动执行: sudo chsh -s ${zsh_path} ${USER}${NC}"
     fi
 }
 
