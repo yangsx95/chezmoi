@@ -53,6 +53,42 @@ if [ "$OS" = "wsl" ]; then
 fi
 
 # ────────────────────────────────────────
+# 函数：配置 WSL
+# ────────────────────────────────────────
+configure_wsl() {
+    if [ "$OS" != "wsl" ]; then
+        return
+    fi
+
+    echo -e "${YELLOW}检查 WSL 配置...${NC}"
+
+    local tmp_file
+    tmp_file="$(mktemp)"
+
+    cat > "$tmp_file" <<EOF
+[boot]
+systemd=true
+
+[user]
+default=${USER}
+
+[interop]
+appendWindowsPath=false
+EOF
+
+    if [ -f /etc/wsl.conf ] && cmp -s "$tmp_file" /etc/wsl.conf; then
+        echo -e "${GREEN}/etc/wsl.conf 已配置，跳过。${NC}"
+        rm -f "$tmp_file"
+        return
+    fi
+
+    echo -e "${CYAN}写入 /etc/wsl.conf，关闭 Windows PATH 注入（需要 sudo）...${NC}"
+    sudo install -m 0644 "$tmp_file" /etc/wsl.conf
+    rm -f "$tmp_file"
+    echo -e "${YELLOW}WSL 配置需在 Windows 中执行 wsl --shutdown 后重新打开才会完全生效。${NC}"
+}
+
+# ────────────────────────────────────────
 # 函数：安装系统基础依赖
 # ────────────────────────────────────────
 install_system_packages() {
@@ -671,32 +707,35 @@ main() {
     echo -e "${CYAN}环境配置初始化/更新脚本开始执行${NC}"
     echo -e "${CYAN}========================================${NC}"
 
-    # 1. 安装系统基础依赖
+    # 1. 配置 WSL
+    configure_wsl
+
+    # 2. 安装系统基础依赖
     install_system_packages
 
-    # 2. 安装依赖工具
+    # 3. 安装依赖工具
     install_chezmoi
     install_mise
 
-    # 3. 安装 zsh / oh-my-zsh 体验
+    # 4. 安装 zsh / oh-my-zsh 体验
     install_zsh_stack
 
-    # 4. 初始化或更新 chezmoi 配置
+    # 5. 初始化或更新 chezmoi 配置
     init_or_update_chezmoi "$REPO_URL"
 
-    # 5. 安装 mise 声明的工具
+    # 6. 安装 mise 声明的工具
     install_mise_tools
 
-    # 6. Clash 客户端（可选跳过）
+    # 7. Clash 客户端（可选跳过）
     install_clash
 
-    # 7. VS Code（可选跳过）
+    # 8. VS Code（可选跳过）
     install_vscode
 
-    # 8. JetBrains Toolbox（可选跳过）
+    # 9. JetBrains Toolbox（可选跳过）
     install_jetbrains_toolbox
 
-    # 9. GitHub Desktop（可选跳过）
+    # 10. GitHub Desktop（可选跳过）
     install_github_desktop
 
     echo -e "${CYAN}========================================${NC}"
