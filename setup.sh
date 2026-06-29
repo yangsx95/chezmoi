@@ -286,9 +286,10 @@ init_or_update_chezmoi() {
         source_path=""
     fi
 
-    if [ -n "$source_path" ]; then
+    if [ -n "$source_path" ] && git -C "$source_path" rev-parse --is-inside-work-tree &> /dev/null; then
         echo -e "${CYAN}已找到 chezmoi 仓库，正在尝试更新...${NC}"
 
+        git -C "$source_path" remote set-url origin "$repo_url"
         if chezmoi update --force; then
             echo -e "${GREEN}chezmoi 更新完成${NC}"
         else
