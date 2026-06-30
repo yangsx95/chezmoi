@@ -3,6 +3,11 @@
     "level": "info",
     "timestamp": true
   },
+  "experimental": {
+    "cache_file": {
+      "enabled": true
+    }
+  },
   "inbounds": [
     {
       "type": "mixed",
@@ -23,23 +28,27 @@
     }
   ],
   "route": {
-    "rules": [
+    "rule_set": [
       {
-        "domain": [
-          "analytics.google.com",
-          "www.google-analytics.com"
-        ],
-        "outbound": "block"
+        "type": "remote",
+        "tag": "geosite-ads",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
+        "update_interval": "1d"
       },
       {
-        "domain_suffix": [
-          "doubleclick.net",
-          "googleadservices.com",
-          "googlesyndication.com",
-          "googletagmanager.com",
-          "googletagservices.com",
-          "scorecardresearch.com",
-          "umeng.com"
+        "type": "remote",
+        "tag": "geosite-porn",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-porn.srs",
+        "update_interval": "1d"
+      }
+    ],
+    "rules": [
+      {
+        "rule_set": [
+          "geosite-ads",
+          "geosite-porn"
         ],
         "outbound": "block"
       }
