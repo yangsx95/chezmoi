@@ -23,6 +23,27 @@
     }
   ],
   "route": {
+    "rules": [
+      {
+        "domain": [
+          "analytics.google.com",
+          "www.google-analytics.com"
+        ],
+        "outbound": "block"
+      },
+      {
+        "domain_suffix": [
+          "doubleclick.net",
+          "googleadservices.com",
+          "googlesyndication.com",
+          "googletagmanager.com",
+          "googletagservices.com",
+          "scorecardresearch.com",
+          "umeng.com"
+        ],
+        "outbound": "block"
+      }
+    ],
     "final": "direct"
   }
 }
