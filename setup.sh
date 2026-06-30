@@ -406,90 +406,65 @@ install_mise_tools() {
 }
 
 # ────────────────────────────────────────
-# Clash 客户端（macOS：Homebrew；Linux/WSL：AppImage 或 DEB）
-# 跳过：DOTFILES_SKIP_CLASH=1
+# sing-box 代理核心
+# 跳过：DOTFILES_SKIP_SING_BOX=1
 # ────────────────────────────────────────
-install_clash() {
-    if [ "${DOTFILES_SKIP_CLASH:-}" = "1" ]; then
-        echo -e "${YELLOW}已设置 DOTFILES_SKIP_CLASH=1，跳过 Clash 安装。${NC}"
+install_sing_box() {
+    if [ "${DOTFILES_SKIP_SING_BOX:-}" = "1" ]; then
+        echo -e "${YELLOW}已设置 DOTFILES_SKIP_SING_BOX=1，跳过 sing-box 安装。${NC}"
         return
     fi
+
+    echo -e "${YELLOW}检查 sing-box 是否已安装...${NC}"
+    if command -v sing-box &> /dev/null; then
+        echo -e "${GREEN}sing-box 已安装，跳过安装步骤${NC}"
+        configure_sing_box_service
+        return
+    fi
+
     case "$OS" in
         macos)
             if ! command -v brew &> /dev/null; then
-                echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask clash-verge-rev${NC}"
+                echo -e "${YELLOW}无 Homebrew，跳过 sing-box 安装。${NC}"
                 return
             fi
-            echo -e "${CYAN}安装 Clash Verge Rev (macOS)...${NC}"
-            brew install --cask clash-verge-rev || echo -e "${YELLOW}brew 安装失败或已安装${NC}"
+            echo -e "${CYAN}使用 Homebrew 安装 sing-box...${NC}"
+            brew install sing-box || echo -e "${YELLOW}brew 安装 sing-box 失败或已安装${NC}"
             ;;
         linux|wsl)
-            local CLASH_REPO="clash-verge-rev/clash-verge-rev"
-            local CLASH_VERSION
-            CLASH_VERSION=$(curl -fsSL --max-time 15 "https://api.github.com/repos/${CLASH_REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/')
-
-            if [ -z "$CLASH_VERSION" ]; then
-                echo -e "${YELLOW}无法获取 Clash Verge Rev 最新版本，请手动安装: https://github.com/${CLASH_REPO}/releases${NC}"
-                return
-            fi
-
-            echo -e "${CYAN}安装 Clash Verge Rev ${CLASH_VERSION} (Linux/WSL)...${NC}"
-
-            # 移除 v 前缀
-            local VER="${CLASH_VERSION#v}"
-
-            # 优先尝试 DEB（Ubuntu/Debian/WSL 默认），否则 AppImage
-            if command -v dpkg &> /dev/null; then
-                local ARCH
-                ARCH=$(dpkg --print-architecture)
-                local DEB_URL="https://github.com/${CLASH_REPO}/releases/download/${CLASH_VERSION}/Clash.Verge_${VER}_${ARCH}.deb"
-                local TMP_DEB=$(mktemp /tmp/clash-verge.XXXXXX.deb)
-
-                echo -e "${CYAN}下载 ${DEB_URL} ...${NC}"
-                if curl -fsSL --max-time 120 -o "$TMP_DEB" "$DEB_URL"; then
-                    echo -e "${CYAN}安装 DEB 包 (需要 sudo)...${NC}"
-                    if sudo dpkg -i "$TMP_DEB" 2>/dev/null; then
-                        echo -e "${GREEN}Clash Verge Rev DEB 安装完成${NC}"
-                    else
-                        sudo apt-get install -f -y 2>/dev/null && sudo dpkg -i "$TMP_DEB" && echo -e "${GREEN}Clash Verge Rev DEB 安装完成（依赖已修复）${NC}"
-                    fi
-                else
-                    echo -e "${YELLOW}DEB 下载失败，尝试 AppImage...${NC}"
-                    _install_clash_appimage "$CLASH_REPO" "$CLASH_VERSION" "$VER"
-                fi
-                rm -f "$TMP_DEB"
-            else
-                _install_clash_appimage "$CLASH_REPO" "$CLASH_VERSION" "$VER"
-            fi
+            echo -e "${CYAN}使用官方脚本安装 sing-box...${NC}"
+            curl -fsSL --max-time 120 https://sing-box.app/install.sh | sh
             ;;
         *)
             ;;
     esac
+
+    configure_sing_box_service
 }
 
-_install_clash_appimage() {
-    local repo="$1" version="$2" ver="$3"
-    local ARCH
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64) ARCH="amd64" ;;
-        aarch64) ARCH="arm64" ;;
-    esac
+configure_sing_box_service() {
+    local config_path="${HOME}/.config/sing-box/config.json"
 
-    local APPIMAGE_URL="https://github.com/${repo}/releases/download/${version}/Clash.Verge_${ver}_${ARCH}.AppImage"
-    local INSTALL_DIR="${HOME}/.local/bin"
-    local APPIMAGE_PATH="${INSTALL_DIR}/clash-verge-rev.AppImage"
+    if [ ! -f "$config_path" ]; then
+        echo -e "${YELLOW}未找到 ${config_path}，等待 chezmoi apply 后再配置 sing-box 服务。${NC}"
+        return
+    fi
 
-    mkdir -p "$INSTALL_DIR"
+    if command -v sing-box &> /dev/null; then
+        if ! sing-box check -c "$config_path"; then
+            echo -e "${RED}sing-box 配置校验失败: ${config_path}${NC}"
+            return 1
+        fi
+    fi
 
-    echo -e "${CYAN}下载 AppImage: ${APPIMAGE_URL} ...${NC}"
-    if curl -fsSL --max-time 120 -o "$APPIMAGE_PATH" "$APPIMAGE_URL"; then
-        chmod +x "$APPIMAGE_PATH"
-        echo -e "${GREEN}Clash Verge Rev AppImage 已安装到 ${APPIMAGE_PATH}${NC}"
-        echo -e "${YELLOW}  • 确保 \$HOME/.local/bin 在 PATH 中${NC}"
-    else
-        echo -e "${RED}AppImage 下载失败${NC}"
-        echo -e "${YELLOW}请手动安装: https://github.com/${repo}/releases${NC}"
+    if [ "$OS" = "linux" ] || [ "$OS" = "wsl" ]; then
+        if command -v systemctl &> /dev/null; then
+            echo -e "${CYAN}配置 sing-box systemd 服务（需要 sudo）...${NC}"
+            sudo mkdir -p /etc/sing-box
+            sudo ln -sf "$config_path" /etc/sing-box/config.json
+            sudo systemctl enable sing-box || true
+            sudo systemctl restart sing-box || echo -e "${YELLOW}sing-box 服务启动失败，可稍后手动检查。${NC}"
+        fi
     fi
 }
 
@@ -740,8 +715,8 @@ main() {
     # 6. 安装 mise 声明的工具
     install_mise_tools
 
-    # 7. Clash 客户端（可选跳过）
-    install_clash
+    # 7. sing-box 代理核心（可选跳过）
+    install_sing_box
 
     # 8. VS Code（可选跳过）
     install_vscode

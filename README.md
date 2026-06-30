@@ -53,7 +53,7 @@ chezmoi update
 | 5. 安装 zsh 栈 | 安装 oh-my-zsh、autosuggestions、syntax-highlighting，并尝试切换默认 shell 到 zsh |
 | 6. chezmoi init/update | 初始化或更新 dotfiles 到 `$HOME` |
 | 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、uv、Go、Node 等） |
-| 8. Clash（可选） | macOS 用 brew 安装 GUI；Linux/WSL 尝试安装 DEB/AppImage，`DOTFILES_SKIP_CLASH=1` 跳过 |
+| 8. sing-box（可选） | macOS 用 brew 安装；Linux/WSL 用官方脚本安装，`DOTFILES_SKIP_SING_BOX=1` 跳过 |
 | 9. VS Code（可选） | macOS 用 brew cask；Linux/WSL 配置 Microsoft apt 源安装 `code`，`DOTFILES_SKIP_VSCODE=1` 跳过 |
 | 10. JetBrains Toolbox（可选） | macOS 用 brew cask；Linux/WSL 下载官方 Toolbox，`DOTFILES_SKIP_JETBRAINS_TOOLBOX=1` 跳过 |
 | 11. GitHub Desktop（可选） | macOS 用官方 Homebrew cask；Linux/WSL 使用 `shiftkey/desktop` 社区 DEB 构建，`DOTFILES_SKIP_GITHUB_DESKTOP=1` 跳过 |
@@ -68,7 +68,7 @@ chezmoi update
 |------|------|
 | `.zshrc` | oh-my-zsh 配置，含插件（git、docker、python、node 等）、别名、mise 集成 |
 | `.zprofile` | Login shell PATH 设置 |
-| `.proxyrc` | HTTP 代理开关函数（配合 Clash，默认端口 7890） |
+| `.proxyrc` | HTTP 代理开关函数（配合 sing-box mixed inbound，默认端口 7890） |
 | `.inputrc` | Readline 配置（bash/python 等历史搜索） |
 | `.vimrc` | Vim 基础配置 |
 
@@ -78,6 +78,7 @@ chezmoi update
 |------|------|
 | `.config/mise/config.toml` | mise 全局工具：Java (zulu-8/17/21)、Python、uv、Go、Node (20/22/24)、maven、gradle |
 | `.config/pip/pip.conf` | pip 阿里云镜像 |
+| `.config/sing-box/config.json` | sing-box 基础配置，监听 `127.0.0.1:7890` |
 | `.npmrc` | npm 全局配置 |
 | `.gitconfig` | Git 全局配置（用户信息、别名、编码） |
 | `.gitignore` | 全局 Git 忽略（IDE、系统文件） |
@@ -116,7 +117,7 @@ wsl
 
 ### 代理
 
-WSL2 mirrored 模式下，Windows 上的 Clash 代理可直接通过 `127.0.0.1:7890` 访问。登录 shell 会自动加载 `~/.proxyrc`。
+sing-box 默认监听 `127.0.0.1:7890`。登录 shell 会自动加载 `~/.proxyrc`。
 
 禁用代理：
 ```bash
@@ -149,6 +150,7 @@ cd $(chezmoi source-path)  # 进入仓库目录
 ├── .config/
 │   ├── mise/config.toml              # mise 工具版本
 │   ├── pip/pip.conf                  # pip 镜像
+│   ├── sing-box/config.json          # sing-box 配置
 │   └── gh/config.yml                 # GitHub CLI
 ├── .ssh/config                       # SSH 配置
 ├── .m2/settings.xml                  # Maven 配置
