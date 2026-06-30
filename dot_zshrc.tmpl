@@ -114,12 +114,6 @@ export LC_ALL='en_US.UTF-8'
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
 
-{{- if eq .chezmoi.os "linux" }}
-# Linux / WSL：X11 转发到 Windows 主机（配合 VcXsrv / GWSL 等）
-# export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0.0
-# export LIBGL_ALWAYS_INDIRECT=1
-{{- end }}
-
 # 加载代理配置（可用 DOTFILES_USE_PROXY=0 或 ~/.config/dotfiles/no-proxy 禁用）
 if [ -f ~/.proxyrc ]; then
     source ~/.proxyrc

@@ -8,5 +8,11 @@
 # 用户本地 bin 优先
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
-# WSL：将 Windows 侧常用工具加入 PATH（可选）
-# export PATH="$PATH:/mnt/c/Users/$(/mnt/c/Windows/System32/cmd.exe /c 'echo %USERNAME%' 2>/dev/null | tr -d '\r')/AppData/Local/Programs/Microsoft VS Code/bin"
+# WSL GUI scaling
+if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+    export GDK_SCALE=2
+    export GDK_DPI_SCALE=0.75
+    export QT_SCALE_FACTOR=1.5
+    export QT_AUTO_SCREEN_SCALE_FACTOR=1
+    export ELECTRON_FORCE_DEVICE_SCALE_FACTOR=1.5
+fi
