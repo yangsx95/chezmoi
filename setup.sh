@@ -406,75 +406,17 @@ install_mise_tools() {
 }
 
 # ────────────────────────────────────────
-# sing-box 代理核心
-# 跳过：DOTFILES_SKIP_SING_BOX=1
-# ────────────────────────────────────────
-install_sing_box() {
-    if [ "${DOTFILES_SKIP_SING_BOX:-}" = "1" ]; then
-        echo -e "${YELLOW}已设置 DOTFILES_SKIP_SING_BOX=1，跳过 sing-box 安装。${NC}"
-        return
-    fi
-
-    echo -e "${YELLOW}检查 sing-box 是否已安装...${NC}"
-    if command -v sing-box &> /dev/null; then
-        echo -e "${GREEN}sing-box 已安装，跳过安装步骤${NC}"
-        configure_sing_box_service
-        return
-    fi
-
-    case "$OS" in
-        macos)
-            if ! command -v brew &> /dev/null; then
-                echo -e "${YELLOW}无 Homebrew，跳过 sing-box 安装。${NC}"
-                return
-            fi
-            echo -e "${CYAN}使用 Homebrew 安装 sing-box...${NC}"
-            brew install sing-box || echo -e "${YELLOW}brew 安装 sing-box 失败或已安装${NC}"
-            ;;
-        linux|wsl)
-            echo -e "${CYAN}使用官方脚本安装 sing-box...${NC}"
-            curl -fsSL --max-time 120 https://sing-box.app/install.sh | sh
-            ;;
-        *)
-            ;;
-    esac
-
-    configure_sing_box_service
-}
-
-configure_sing_box_service() {
-    local config_path="${HOME}/.config/sing-box/config.json"
-
-    if [ ! -f "$config_path" ]; then
-        echo -e "${YELLOW}未找到 ${config_path}，等待 chezmoi apply 后再配置 sing-box 服务。${NC}"
-        return
-    fi
-
-    if command -v sing-box &> /dev/null; then
-        if ! sing-box check -c "$config_path"; then
-            echo -e "${RED}sing-box 配置校验失败: ${config_path}${NC}"
-            return 1
-        fi
-    fi
-
-    if [ "$OS" = "linux" ] || [ "$OS" = "wsl" ]; then
-        if command -v systemctl &> /dev/null; then
-            echo -e "${CYAN}配置 sing-box systemd 服务（需要 sudo）...${NC}"
-            sudo mkdir -p /etc/sing-box
-            sudo ln -sf "$config_path" /etc/sing-box/config.json
-            sudo systemctl enable sing-box || true
-            sudo systemctl restart sing-box || echo -e "${YELLOW}sing-box 服务启动失败，可稍后手动检查。${NC}"
-        fi
-    fi
-}
-
-# ────────────────────────────────────────
-# VS Code（macOS：Homebrew；Linux/WSL：Microsoft apt 源）
+# VS Code（macOS：Homebrew；Linux：Microsoft apt 源）
 # 跳过：DOTFILES_SKIP_VSCODE=1
 # ────────────────────────────────────────
 install_vscode() {
     if [ "${DOTFILES_SKIP_VSCODE:-}" = "1" ]; then
         echo -e "${YELLOW}已设置 DOTFILES_SKIP_VSCODE=1，跳过 VS Code 安装。${NC}"
+        return
+    fi
+
+    if [ "$OS" = "wsl" ]; then
+        echo -e "${YELLOW}WSL 环境跳过 VS Code GUI 安装。${NC}"
         return
     fi
 
@@ -492,7 +434,7 @@ install_vscode() {
             echo -e "${CYAN}通过 Homebrew 安装 VS Code (macOS)...${NC}"
             brew install --cask visual-studio-code || echo -e "${YELLOW}brew 安装 VS Code 失败或已安装${NC}"
             ;;
-        linux|wsl)
+        linux)
             if ! command -v apt-get &> /dev/null; then
                 echo -e "${YELLOW}当前 Linux 发行版未检测到 apt-get，跳过 VS Code 自动安装。${NC}"
                 echo -e "${YELLOW}请参考: https://code.visualstudio.com/docs/setup/linux${NC}"
@@ -533,6 +475,11 @@ install_jetbrains_toolbox() {
         return
     fi
 
+    if [ "$OS" = "wsl" ]; then
+        echo -e "${YELLOW}WSL 环境跳过 JetBrains Toolbox GUI 安装。${NC}"
+        return
+    fi
+
     if command -v jetbrains-toolbox &> /dev/null; then
         echo -e "${GREEN}JetBrains Toolbox 已安装，跳过安装步骤${NC}"
         return
@@ -547,7 +494,7 @@ install_jetbrains_toolbox() {
             echo -e "${CYAN}通过 Homebrew 安装 JetBrains Toolbox (macOS)...${NC}"
             brew install --cask jetbrains-toolbox || echo -e "${YELLOW}brew 安装 JetBrains Toolbox 失败或已安装${NC}"
             ;;
-        linux|wsl)
+        linux)
             if ! command -v jq &> /dev/null; then
                 echo -e "${YELLOW}未检测到 jq，无法解析 JetBrains Toolbox 最新版本，跳过。${NC}"
                 return
@@ -608,12 +555,17 @@ install_jetbrains_toolbox() {
 }
 
 # ────────────────────────────────────────
-# GitHub Desktop（macOS：官方版；Linux/WSL：shiftkey 社区构建）
+# GitHub Desktop（macOS：官方版；Linux：shiftkey 社区构建）
 # 跳过：DOTFILES_SKIP_GITHUB_DESKTOP=1
 # ────────────────────────────────────────
 install_github_desktop() {
     if [ "${DOTFILES_SKIP_GITHUB_DESKTOP:-}" = "1" ]; then
         echo -e "${YELLOW}已设置 DOTFILES_SKIP_GITHUB_DESKTOP=1，跳过 GitHub Desktop 安装。${NC}"
+        return
+    fi
+
+    if [ "$OS" = "wsl" ]; then
+        echo -e "${YELLOW}WSL 环境跳过 GitHub Desktop GUI 安装。${NC}"
         return
     fi
 
@@ -630,7 +582,7 @@ install_github_desktop() {
             echo -e "${CYAN}通过 Homebrew 安装 GitHub Desktop (macOS)...${NC}"
             brew install --cask github || echo -e "${YELLOW}brew 安装 GitHub Desktop 失败或已安装${NC}"
             ;;
-        linux|wsl)
+        linux)
             if command -v github-desktop &> /dev/null; then
                 echo -e "${GREEN}GitHub Desktop 已安装，跳过安装步骤${NC}"
                 return
@@ -715,16 +667,13 @@ main() {
     # 6. 安装 mise 声明的工具
     install_mise_tools
 
-    # 7. sing-box 代理核心（可选跳过）
-    install_sing_box
-
-    # 8. VS Code（可选跳过）
+    # 7. VS Code（可选跳过）
     install_vscode
 
-    # 9. JetBrains Toolbox（可选跳过）
+    # 8. JetBrains Toolbox（可选跳过）
     install_jetbrains_toolbox
 
-    # 10. GitHub Desktop（可选跳过）
+    # 9. GitHub Desktop（可选跳过）
     install_github_desktop
 
     echo -e "${CYAN}========================================${NC}"
