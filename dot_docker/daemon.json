@@ -9,7 +9,6 @@
     "registry-mirrors": [
         "https://docker.m.daocloud.io",
         "https://mirror.baidubce.com",
-        "https://dockerproxy.com",
         "https://docker.nju.edu.cn",
         "https://hub-mirror.c.163.com"
     ]

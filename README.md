@@ -67,7 +67,6 @@ chezmoi update
 |------|------|
 | `.zshrc` | oh-my-zsh 配置，含插件（git、docker、python、node 等）、别名、mise 集成 |
 | `.zprofile` | Login shell PATH 设置 |
-| `.proxyrc` | HTTP 代理开关函数（默认端口 7890） |
 | `.inputrc` | Readline 配置（bash/python 等历史搜索） |
 | `.vimrc` | Vim 基础配置 |
 
@@ -113,18 +112,6 @@ wsl --shutdown
 wsl
 ```
 
-### 代理
-
-登录 shell 会自动加载 `~/.proxyrc`。
-
-禁用代理：
-```bash
-mkdir -p ~/.config/dotfiles && touch ~/.config/dotfiles/no-proxy
-# 或 export DOTFILES_USE_PROXY=0
-```
-
-当前会话切换：`proxy_on` / `proxy_off`
-
 ## 日常使用
 
 ```bash
@@ -141,7 +128,7 @@ cd $(chezmoi source-path)  # 进入仓库目录
 
 ```
 ~
-├── .zshrc / .zprofile / .proxyrc     # Shell 配置
+├── .zshrc / .zprofile                # Shell 配置
 ├── .inputrc / .vimrc                 # 终端工具配置
 ├── .gitconfig / .gitignore / .gitattributes  # Git 配置
 ├── .npmrc                            # npm 配置
