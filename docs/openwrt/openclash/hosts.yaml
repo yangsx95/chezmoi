@@ -1,0 +1,44 @@
+hosts:
+  # ===============================
+  # Google SafeSearch
+  # ===============================
+  www.google.com: forcesafesearch.google.com
+  www.google.com.hk: forcesafesearch.google.com
+  www.google.co.jp: forcesafesearch.google.com
+  www.google.com.tw: forcesafesearch.google.com
+  www.google.com.sg: forcesafesearch.google.com
+  www.google.co.uk: forcesafesearch.google.com
+  www.google.ca: forcesafesearch.google.com
+  www.google.com.au: forcesafesearch.google.com
+  www.google.co.kr: forcesafesearch.google.com
+  www.google.de: forcesafesearch.google.com
+  www.google.fr: forcesafesearch.google.com
+  www.google.it: forcesafesearch.google.com
+  www.google.es: forcesafesearch.google.com
+  www.google.nl: forcesafesearch.google.com
+  www.google.com.br: forcesafesearch.google.com
+  www.google.co.in: forcesafesearch.google.com
+
+  # ===============================
+  # Bing SafeSearch Strict
+  # ===============================
+  www.bing.com: strict.bing.com
+  bing.com: strict.bing.com
+  cn.bing.com: strict.bing.com
+  global.bing.com: strict.bing.com
+
+  # ===============================
+  # DuckDuckGo SafeSearch
+  # ===============================
+  duckduckgo.com: safe.duckduckgo.com
+  www.duckduckgo.com: safe.duckduckgo.com
+
+  # ===============================
+  # YouTube Restricted Mode - Strict
+  # 如果你只想中等限制，把 restrict.youtube.com 改成 restrictmoderate.youtube.com
+  # ===============================
+  www.youtube.com: restrict.youtube.com
+  m.youtube.com: restrict.youtube.com
+  youtubei.googleapis.com: restrict.youtube.com
+  youtube.googleapis.com: restrict.youtube.com
+  www.youtube-nocookie.com: restrict.youtube.com

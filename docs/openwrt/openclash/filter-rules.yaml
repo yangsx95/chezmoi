@@ -1,0 +1,291 @@
+rule-providers:
+  Advertising:
+    type: http
+    behavior: classical
+    format: yaml
+    path: ./rule_provider/Advertising_Classical.yaml
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Advertising/Advertising_Classical.yaml"
+    interval: 86400
+    proxy: DIRECT
+
+  Privacy:
+    type: http
+    behavior: classical
+    format: yaml
+    path: ./rule_provider/Privacy_Classical.yaml
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Privacy/Privacy_Classical.yaml"
+    interval: 86400
+    proxy: DIRECT
+
+  Porn:
+    type: http
+    behavior: classical
+    format: yaml
+    path: ./rule_provider/Porn_Classical.yaml
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Porn/Porn_Classical.yaml"
+    interval: 86400
+    proxy: DIRECT
+
+  Hijacking:
+    type: http
+    behavior: classical
+    format: yaml
+    path: ./rule_provider/Hijacking_Classical.yaml
+    url: "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Hijacking/Hijacking_Classical.yaml"
+    interval: 86400
+    proxy: DIRECT
+
+rules:
+  # ===============================
+  # 1. 订阅规则：广告 / 隐私追踪 / 色情 / 劫持
+  # ===============================
+  - RULE-SET,Advertising,REJECT
+  - RULE-SET,Privacy,REJECT
+  - RULE-SET,Porn,REJECT
+  - RULE-SET,Hijacking,REJECT
+
+  # ===============================
+  # 2. 高风险搜索 / 视频 / 社交平台
+  # ===============================
+
+  # Yandex
+  - DOMAIN-SUFFIX,yandex.com,REJECT
+  - DOMAIN-SUFFIX,yandex.ru,REJECT
+  - DOMAIN-SUFFIX,yandex.net,REJECT
+  - DOMAIN-SUFFIX,yastatic.net,REJECT
+  - DOMAIN-SUFFIX,yandexadexchange.net,REJECT
+  - DOMAIN-KEYWORD,yandex,REJECT
+
+  # YouTube
+  - DOMAIN-SUFFIX,youtube.com,REJECT
+  - DOMAIN-SUFFIX,youtu.be,REJECT
+  - DOMAIN-SUFFIX,youtube-nocookie.com,REJECT
+  - DOMAIN-SUFFIX,googlevideo.com,REJECT
+  - DOMAIN-SUFFIX,ytimg.com,REJECT
+  - DOMAIN-SUFFIX,youtubei.googleapis.com,REJECT
+  - DOMAIN-SUFFIX,youtube.googleapis.com,REJECT
+  - DOMAIN-KEYWORD,youtube,REJECT
+
+  # Telegram
+  - DOMAIN-SUFFIX,telegram.org,REJECT
+  - DOMAIN-SUFFIX,telegram.me,REJECT
+  - DOMAIN-SUFFIX,t.me,REJECT
+  - DOMAIN-SUFFIX,telegra.ph,REJECT
+  - DOMAIN-SUFFIX,tdesktop.com,REJECT
+  - DOMAIN-KEYWORD,telegram,REJECT
+  - IP-CIDR,91.108.4.0/22,REJECT,no-resolve
+  - IP-CIDR,91.108.8.0/22,REJECT,no-resolve
+  - IP-CIDR,91.108.12.0/22,REJECT,no-resolve
+  - IP-CIDR,91.108.16.0/22,REJECT,no-resolve
+  - IP-CIDR,91.108.20.0/22,REJECT,no-resolve
+  - IP-CIDR,91.108.56.0/22,REJECT,no-resolve
+  - IP-CIDR,149.154.160.0/20,REJECT,no-resolve
+
+  # Instagram / Threads / Facebook
+  - DOMAIN-SUFFIX,instagram.com,REJECT
+  - DOMAIN-SUFFIX,cdninstagram.com,REJECT
+  - DOMAIN-SUFFIX,ig.me,REJECT
+  - DOMAIN-SUFFIX,threads.net,REJECT
+  - DOMAIN-SUFFIX,facebook.com,REJECT
+  - DOMAIN-SUFFIX,fbcdn.net,REJECT
+  - DOMAIN-SUFFIX,fb.com,REJECT
+  - DOMAIN-KEYWORD,instagram,REJECT
+
+  # X / Twitter
+  - DOMAIN-SUFFIX,x.com,REJECT
+  - DOMAIN-SUFFIX,twitter.com,REJECT
+  - DOMAIN-SUFFIX,twimg.com,REJECT
+  - DOMAIN-SUFFIX,t.co,REJECT
+  - DOMAIN-KEYWORD,twitter,REJECT
+
+  # TikTok
+  - DOMAIN-SUFFIX,tiktok.com,REJECT
+  - DOMAIN-SUFFIX,tiktokv.com,REJECT
+  - DOMAIN-SUFFIX,tiktokcdn.com,REJECT
+  - DOMAIN-SUFFIX,muscdn.com,REJECT
+  - DOMAIN-SUFFIX,byteoversea.com,REJECT
+  - DOMAIN-KEYWORD,tiktok,REJECT
+
+  # Reddit / Tumblr / Discord
+  - DOMAIN-SUFFIX,reddit.com,REJECT
+  - DOMAIN-SUFFIX,redd.it,REJECT
+  - DOMAIN-SUFFIX,redditmedia.com,REJECT
+  - DOMAIN-SUFFIX,redditstatic.com,REJECT
+
+  - DOMAIN-SUFFIX,tumblr.com,REJECT
+  - DOMAIN-SUFFIX,tumblr.co,REJECT
+  - DOMAIN-SUFFIX,tmblr.co,REJECT
+
+  - DOMAIN-SUFFIX,discord.com,REJECT
+  - DOMAIN-SUFFIX,discord.gg,REJECT
+  - DOMAIN-SUFFIX,discordapp.com,REJECT
+  - DOMAIN-SUFFIX,discordapp.net,REJECT
+
+  # Snapchat / Pinterest
+  - DOMAIN-SUFFIX,snapchat.com,REJECT
+  - DOMAIN-SUFFIX,pinterest.com,REJECT
+  - DOMAIN-SUFFIX,pinimg.com,REJECT
+
+  # ===============================
+  # 3. 常见成人站点 / 成人 CDN
+  # ===============================
+  - DOMAIN-SUFFIX,pornhub.com,REJECT
+  - DOMAIN-SUFFIX,pornhubpremium.com,REJECT
+  - DOMAIN-SUFFIX,phncdn.com,REJECT
+  - DOMAIN-SUFFIX,xvideos.com,REJECT
+  - DOMAIN-SUFFIX,xnxx.com,REJECT
+  - DOMAIN-SUFFIX,xhamster.com,REJECT
+  - DOMAIN-SUFFIX,redtube.com,REJECT
+  - DOMAIN-SUFFIX,onlyfans.com,REJECT
+  - DOMAIN-SUFFIX,spankbang.com,REJECT
+  - DOMAIN-SUFFIX,youjizz.com,REJECT
+  - DOMAIN-SUFFIX,brazzers.com,REJECT
+  - DOMAIN-SUFFIX,chaturbate.com,REJECT
+  - DOMAIN-SUFFIX,livejasmin.com,REJECT
+  - DOMAIN-SUFFIX,stripchat.com,REJECT
+  - DOMAIN-SUFFIX,bongacams.com,REJECT
+  - DOMAIN-SUFFIX,cam4.com,REJECT
+  - DOMAIN-SUFFIX,myfreecams.com,REJECT
+  - DOMAIN-SUFFIX,eporner.com,REJECT
+  - DOMAIN-SUFFIX,beeg.com,REJECT
+  - DOMAIN-SUFFIX,tnaflix.com,REJECT
+  - DOMAIN-SUFFIX,thumbzilla.com,REJECT
+  - DOMAIN-SUFFIX,rule34.xxx,REJECT
+  - DOMAIN-SUFFIX,nhentai.net,REJECT
+  - DOMAIN-SUFFIX,hanime.tv,REJECT
+  - DOMAIN-SUFFIX,jable.tv,REJECT
+  - DOMAIN-SUFFIX,javbus.com,REJECT
+  - DOMAIN-SUFFIX,javdb.com,REJECT
+
+  # 手动补充色情站
+  - DOMAIN,gamebus001.com,REJECT
+  - DOMAIN-SUFFIX,gamebus001.com,REJECT
+  - DOMAIN-KEYWORD,gamebus001,REJECT
+
+  # ===============================
+  # 4. 成人 / 擦边关键词兜底
+  # 注意：关键词规则更严格，可能误伤少量正常网站
+  # ===============================
+  - DOMAIN-KEYWORD,porn,REJECT
+  - DOMAIN-KEYWORD,porno,REJECT
+  - DOMAIN-KEYWORD,sex,REJECT
+  - DOMAIN-KEYWORD,sexy,REJECT
+  - DOMAIN-KEYWORD,xxx,REJECT
+  - DOMAIN-KEYWORD,adult,REJECT
+  - DOMAIN-KEYWORD,nude,REJECT
+  - DOMAIN-KEYWORD,naked,REJECT
+  - DOMAIN-KEYWORD,onlyfans,REJECT
+  - DOMAIN-KEYWORD,camgirl,REJECT
+  - DOMAIN-KEYWORD,livecam,REJECT
+  - DOMAIN-KEYWORD,jav,REJECT
+  - DOMAIN-KEYWORD,hentai,REJECT
+  - DOMAIN-KEYWORD,rule34,REJECT
+
+  # ===============================
+  # 5. 高风险域名后缀拦截
+  # ===============================
+
+  # 成人明确相关后缀
+  - DOMAIN-SUFFIX,cam,REJECT
+  - DOMAIN-SUFFIX,sex,REJECT
+  - DOMAIN-SUFFIX,sexy,REJECT
+  - DOMAIN-SUFFIX,porn,REJECT
+  - DOMAIN-SUFFIX,adult,REJECT
+  - DOMAIN-SUFFIX,xxx,REJECT
+
+  # 灰产 / 色情 / 跳转 / 垃圾站常见后缀
+  - DOMAIN-SUFFIX,xyz,REJECT
+  - DOMAIN-SUFFIX,top,REJECT
+  - DOMAIN-SUFFIX,click,REJECT
+  - DOMAIN-SUFFIX,icu,REJECT
+  - DOMAIN-SUFFIX,sbs,REJECT
+  - DOMAIN-SUFFIX,cyou,REJECT
+  - DOMAIN-SUFFIX,monster,REJECT
+  - DOMAIN-SUFFIX,quest,REJECT
+  - DOMAIN-SUFFIX,buzz,REJECT
+  - DOMAIN-SUFFIX,fun,REJECT
+  - DOMAIN-SUFFIX,lol,REJECT
+  - DOMAIN-SUFFIX,rest,REJECT
+  - DOMAIN-SUFFIX,cfd,REJECT
+  - DOMAIN-SUFFIX,win,REJECT
+  - DOMAIN-SUFFIX,men,REJECT
+  - DOMAIN-SUFFIX,date,REJECT
+  - DOMAIN-SUFFIX,party,REJECT
+  - DOMAIN-SUFFIX,review,REJECT
+  - DOMAIN-SUFFIX,trade,REJECT
+  - DOMAIN-SUFFIX,download,REJECT
+  - DOMAIN-SUFFIX,stream,REJECT
+  - DOMAIN-SUFFIX,gdn,REJECT
+  - DOMAIN-SUFFIX,se,REJECT
+  - DOMAIN-SUFFIX,cc,REJECT
+  - DOMAIN-SUFFIX,co,REJECT
+ 
+  # 钓鱼 / 诈骗 / 下载诱导高风险后缀
+  - DOMAIN-SUFFIX,zip,REJECT
+  - DOMAIN-SUFFIX,mov,REJECT
+  - DOMAIN-SUFFIX,tk,REJECT
+  - DOMAIN-SUFFIX,ml,REJECT
+  - DOMAIN-SUFFIX,ga,REJECT
+  - DOMAIN-SUFFIX,gq,REJECT
+  - DOMAIN-SUFFIX,cf,REJECT
+
+  # 赌博相关后缀
+  - DOMAIN-SUFFIX,bet,REJECT
+  - DOMAIN-SUFFIX,casino,REJECT
+  - DOMAIN-SUFFIX,poker,REJECT
+  - DOMAIN-SUFFIX,bingo,REJECT
+
+    # ===============================
+  # 5.4 随机无规则域名拦截
+  # ===============================
+
+  # 1. 任意一段包含连续 5 位以上数字
+  # 例：930677f28.rtrtrtw.cn、lb1590240fk.imapooo.com
+  - DOMAIN-REGEX,(^|\.)[a-z0-9-]*[0-9]{5}[0-9]*[a-z0-9-]*(\.|$),REJECT
+  # 2. 任意一段是 8 位以上十六进制/机器码风格
+  # 例：930677f28、a83f91c2、7f9a2b01
+  - DOMAIN-REGEX,(^|\.)[0-9a-f]{8}[0-9a-f]*(\.|$),REJECT
+  # 3. 任意一段是 7 位以上无元音随机串
+  # 例：rtrtrtw、qwrtyps、xkcdmnp
+  - DOMAIN-REGEX,(^|\.)[bcdfghjklmnpqrstvwxyz0-9]{7}[bcdfghjklmnpqrstvwxyz0-9]*(\.|$),REJECT
+  # 4. 任意一段是“字母 + 长数字 + 字母”的灰产格式
+  # 例：lb1590240fk、ab123456cd
+  - DOMAIN-REGEX,(^|\.)[a-z]{1}[a-z]*[0-9]{4}[0-9]*[a-z]{1}[a-z]*(\.|$),REJECT
+  # 5. 任意一段长度超过 20，且只由小写字母/数字/横线组成
+  # 例：asdhqweuiqweoiuqweoiu.example.com
+  - DOMAIN-REGEX,(^|\.)[a-z0-9-]{20}[a-z0-9-]*(\.|$),REJECT
+  
+  # ===============================
+  # 6. 常见 DoH 防绕过
+  # ===============================
+  - DOMAIN-SUFFIX,dns.google,REJECT
+  - DOMAIN-SUFFIX,cloudflare-dns.com,REJECT
+  - DOMAIN-SUFFIX,mozilla.cloudflare-dns.com,REJECT
+  - DOMAIN-SUFFIX,dns.quad9.net,REJECT
+  - DOMAIN-SUFFIX,doh.pub,REJECT
+  - DOMAIN-SUFFIX,dns.alidns.com,REJECT
+
+  # ===============================
+  # 7. 国内常用站强制直连，避免隐私错误
+  # ===============================
+  - DOMAIN-SUFFIX,baidu.com,DIRECT
+  - DOMAIN-SUFFIX,bdstatic.com,DIRECT
+  - DOMAIN-SUFFIX,baidustatic.com,DIRECT
+  - DOMAIN-SUFFIX,bdimg.com,DIRECT
+  - DOMAIN-SUFFIX,bcebos.com,DIRECT
+  - DOMAIN-SUFFIX,baiducontent.com,DIRECT
+
+  - DOMAIN-SUFFIX,taobao.com,DIRECT
+  - DOMAIN-SUFFIX,tmall.com,DIRECT
+  - DOMAIN-SUFFIX,alicdn.com,DIRECT
+  - DOMAIN-SUFFIX,alipay.com,DIRECT
+
+  - DOMAIN-SUFFIX,jd.com,DIRECT
+  - DOMAIN-SUFFIX,360buyimg.com,DIRECT
+
+  - DOMAIN-SUFFIX,qq.com,DIRECT
+  - DOMAIN-SUFFIX,weixin.qq.com,DIRECT
+  - DOMAIN-SUFFIX,wechat.com,DIRECT
+
+  - DOMAIN-SUFFIX,bilibili.com,DIRECT
+  - DOMAIN-SUFFIX,hdslb.com,DIRECT
