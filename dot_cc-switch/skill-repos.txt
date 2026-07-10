@@ -1,0 +1,5 @@
+ComposioHQ/awesome-claude-skills#master
+JimLiu/baoyu-skills#main
+anthropics/skills#main
+cexll/myclaude#master
+mattpocock/skills#main
