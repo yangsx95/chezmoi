@@ -187,8 +187,18 @@ setopt autocd
 # 启用通配符扩展
 setopt extendedglob
 
-# 启用历史记录扩展
-setopt histappend
+# 历史记录
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=50000
+SAVEHIST=10000
+setopt append_history
+setopt extended_history
+setopt hist_expire_dups_first
+setopt hist_ignore_dups
+setopt hist_ignore_space
+setopt hist_reduce_blanks
+setopt hist_verify
+setopt share_history
 
 # -------------- 加载配置 --------------
 
