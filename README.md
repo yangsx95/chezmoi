@@ -52,7 +52,7 @@ chezmoi update
 | 4. 安装 mise | macOS 用 brew，Linux/WSL 用官方脚本 |
 | 5. 安装 zsh 栈 | 安装 oh-my-zsh、autosuggestions、syntax-highlighting，并尝试切换默认 shell 到 zsh |
 | 6. chezmoi init/update | 初始化或更新 dotfiles 到 `$HOME` |
-| 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、uv、Go、Node 等） |
+| 7. mise install | 安装 `.config/mise/config.toml` 中声明的工具（Java、Python、uv、Go、Node、Rust 等） |
 | 8. VS Code（可选） | macOS 用 brew cask；Linux 配置 Microsoft apt 源安装 `code`，WSL 跳过 GUI 安装，`DOTFILES_SKIP_VSCODE=1` 跳过 |
 | 9. JetBrains Toolbox（可选） | macOS 用 brew cask；Linux 下载官方 Toolbox，WSL 跳过 GUI 安装，`DOTFILES_SKIP_JETBRAINS_TOOLBOX=1` 跳过 |
 | 10. GitHub Desktop（可选） | macOS 用官方 Homebrew cask；Linux 使用 `shiftkey/desktop` 社区 DEB 构建，WSL 跳过 GUI 安装，`DOTFILES_SKIP_GITHUB_DESKTOP=1` 跳过 |
@@ -74,7 +74,7 @@ chezmoi update
 
 | 文件 | 说明 |
 |------|------|
-| `.config/mise/config.toml` | mise 全局工具：Java (zulu-8/17/21)、Python、uv、Go、Node (20/22/24)、maven、gradle |
+| `.config/mise/config.toml` | mise 全局工具：Java (zulu-8/17/21)、Python、uv、Go、Node (20/22/24)、Rust、maven、gradle；核心工具使用明确版本，避免 `latest` 导致重装漂移 |
 | `.config/pip/pip.conf` | pip 阿里云镜像 |
 | `.npmrc` | npm 全局配置 |
 | `.gitconfig` | Git 全局配置（用户信息、别名、编码） |
