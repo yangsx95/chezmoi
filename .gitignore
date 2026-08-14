@@ -3,3 +3,8 @@
 .idea/
 *.iml
 *.ipr
+
+# sing-box runtime data and secrets must never enter this repository.
+dot_local/share/sing-box/private/
+dot_local/share/sing-box/rules/
+dot_local/share/sing-box/rules-src/

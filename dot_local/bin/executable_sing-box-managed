@@ -1,0 +1,360 @@
+#!/bin/sh
+set -eu
+
+config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
+data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
+config_dir="$config_home/sing-box/config.d"
+data_dir="$data_home/sing-box"
+rules_dir="$data_dir/rules"
+subscriptions_dir="$data_dir/subscriptions"
+sources_dir="$data_dir/sources"
+generated_dir="$data_dir/generated"
+previous_dir="$data_dir/previous"
+private_config="$data_dir/private/10-outbounds.json"
+base_config="$config_dir/00-base.json"
+route_config="$data_dir/generated/20-route.json"
+safe_search_config="$data_dir/generated/10-safe-search.json"
+safe_search_sources_dir="$data_dir/safe-search/sources"
+safe_search_generator="$HOME/.local/libexec/sing-box-safe-search-generate.mjs"
+subscriptions_config="$config_home/sing-box/rule-subscriptions.json"
+source_parser="$HOME/.local/libexec/sing-box-rule-source-compile.mjs"
+
+usage() {
+  printf '%s\n' \
+    'Usage: sing-box-managed <compile|update|check|run|status>' \
+    '' \
+    '  compile  Compile personal rules and generate safe-search DNS rules' \
+    '  update   Download enabled subscriptions, compile, validate, and apply' \
+    '  check    Verify external rules and the merged sing-box config' \
+    '  run      Check, then run sing-box with administrator privileges' \
+    '  status   Show the running sing-box process and memory footprint'
+}
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'Missing required command: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+require_file() {
+  if [ ! -f "$1" ]; then
+    printf 'Missing required file: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+sha256_file() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    sha256sum "$1" | awk '{print $1}'
+  fi
+}
+
+cleanup_dir() {
+  if [ -d "$1" ]; then
+    find "$1" -depth -delete
+  fi
+}
+
+generate_route() {
+  subscription_path=$1
+  output_path=$2
+  jq --arg subscriptions "$subscription_path" --arg manual "$rules_dir" '
+    def outbound:
+      if .action == "block" then "block"
+      elif .action == "direct" then "direct"
+      else .outbound
+      end;
+    (([.manual_rules[] | . + {kind:"manual"}]
+      + [.subscriptions[] | select(.type == "route-rule") | {tag,priority,action,outbound,kind:"subscription"}])
+      | sort_by(.priority, .tag)) as $items
+    | {
+        route: {
+          rules: (
+            [
+              {network:["tcp","udp"],port:53,action:"hijack-dns"},
+              {network:["tcp","udp"],port:853,action:"reject"},
+              {action:"sniff"}
+            ]
+            + [$items[] | {rule_set:.tag,outbound:(outbound)}]
+          ),
+          rule_set: [$items[] | {
+            type:"local",
+            tag:.tag,
+            format:"binary",
+            path:(if .kind == "manual" then ($manual + "/" + .tag + ".srs") else ($subscriptions + "/" + .tag + ".srs") end)
+          }],
+          final:.route.final,
+          auto_detect_interface:(.route.auto_detect_interface // true)
+        }
+      }
+  ' "$subscriptions_config" > "$output_path"
+}
+
+compile_local_rules() {
+  require_command sing-box
+  mkdir -p "$rules_dir"
+
+  for name in manual-allow manual-block; do
+    source_file="$config_home/sing-box/rules-src/$name.json"
+    output_file="$rules_dir/$name.srs"
+    require_file "$source_file"
+    temp_file=$(mktemp "$rules_dir/.$name.XXXXXX")
+    if sing-box rule-set compile --output "$temp_file" "$source_file"; then
+      chmod 600 "$temp_file"
+      mv -f "$temp_file" "$output_file"
+    else
+      unlink "$temp_file"
+      exit 1
+    fi
+  done
+
+  require_command curl
+  require_command jq
+  require_command node
+  require_file "$subscriptions_config"
+  require_file "$safe_search_generator"
+  mkdir -p "$generated_dir" "$data_dir/safe-search"
+  safe_search_temp_dir=$(mktemp -d "$data_dir/.safe-search.XXXXXX")
+  trap 'cleanup_dir "$safe_search_temp_dir"' EXIT HUP INT TERM
+  candidate_safe_search_sources="$safe_search_temp_dir/sources"
+  candidate_safe_search_config="$safe_search_temp_dir/10-safe-search.json"
+  mkdir -p "$candidate_safe_search_sources"
+
+  enabled_safe_search_count=$(jq '[.subscriptions[] | select(.type == "dns-rewrite" and .enabled)] | length' "$subscriptions_config")
+  if [ "$enabled_safe_search_count" -gt 0 ]; then
+    jq -c '.subscriptions[] | select(.type == "dns-rewrite" and .enabled)' "$subscriptions_config" |
+    while IFS= read -r entry; do
+      tag=$(printf '%s' "$entry" | jq -r '.tag')
+      name=$(printf '%s' "$entry" | jq -r '.name // .tag')
+      url=$(printf '%s' "$entry" | jq -r '.url')
+      printf '[safe-search/%s] downloading %s\n' "$tag" "$name"
+      curl --fail --location --silent --show-error --retry 3 --retry-all-errors --connect-timeout 20 --max-time 300 \
+        --proto '=https' --user-agent 'chezmoi-sing-box-rules/1' \
+        --output "$candidate_safe_search_sources/$tag.source" "$url"
+    done
+  fi
+
+  if ! node "$safe_search_generator" "$subscriptions_config" "$candidate_safe_search_config" "$candidate_safe_search_sources"; then
+    exit 1
+  fi
+  chmod 600 "$candidate_safe_search_config"
+
+  if [ -f "$base_config" ] && [ -f "$private_config" ]; then
+    if [ -f "$route_config" ]; then
+      if ! sing-box check -c "$base_config" -c "$private_config" -c "$candidate_safe_search_config" -c "$route_config"; then
+        exit 1
+      fi
+    elif ! sing-box check -c "$base_config" -c "$private_config" -c "$candidate_safe_search_config"; then
+      exit 1
+    fi
+  fi
+
+  if [ -f "$safe_search_config" ] && cmp -s "$safe_search_config" "$candidate_safe_search_config"; then
+    unlink "$candidate_safe_search_config"
+  else
+    mv -f "$candidate_safe_search_config" "$safe_search_config"
+    safe_search_changed=true
+  fi
+
+  if [ "$enabled_safe_search_count" -gt 0 ]; then
+    cleanup_dir "$safe_search_sources_dir"
+    mkdir -p "$safe_search_sources_dir"
+    for downloaded_source in "$candidate_safe_search_sources"/*.source; do
+      mv -f "$downloaded_source" "$safe_search_sources_dir/$(basename "$downloaded_source")"
+    done
+  fi
+  cleanup_dir "$safe_search_temp_dir"
+  trap - EXIT HUP INT TERM
+}
+
+update_subscriptions() {
+  require_command curl
+  require_command jq
+  require_command node
+  require_command sing-box
+  require_file "$subscriptions_config"
+  require_file "$base_config"
+  require_file "$private_config"
+  require_file "$safe_search_config"
+  require_file "$source_parser"
+  require_file "$rules_dir/manual-block.srs"
+  require_file "$rules_dir/manual-allow.srs"
+
+  jq -e '
+    .version == 1
+    and (.subscriptions | type == "array" and length > 0)
+    and ([.subscriptions[].tag] | length == (unique | length))
+    and (.dns_rewrite.ttl | type == "number" and . >= 0 and . <= 86400)
+    and all(.subscriptions[];
+      (.tag | test("^[a-z0-9][a-z0-9-]*$"))
+      and (.category | type == "string" and length > 0)
+      and (.enabled | type == "boolean")
+      and (.url | type == "string" and startswith("https://"))
+      and (
+        if .type == "route-rule" then
+          (.priority | type == "number")
+          and (.action == "block" or .action == "direct" or (.outbound | type == "string"))
+          and (.format == "adguard" or .format == "hosts" or .format == "domain-list" or .format == "ip-list" or .format == "clash" or .format == "source")
+        elif .type == "dns-rewrite" then
+          .format == "adguard-dnsrewrite"
+        else false
+        end
+      ))
+  ' "$subscriptions_config" >/dev/null || {
+    printf '%s\n' 'Invalid rule-subscriptions.json' >&2
+    exit 1
+  }
+
+  mkdir -p "$data_dir" "$subscriptions_dir" "$sources_dir" "$generated_dir" "$previous_dir"
+  update_temp_dir=$(mktemp -d "$data_dir/.update.XXXXXX")
+  trap 'cleanup_dir "$update_temp_dir"' EXIT HUP INT TERM
+  candidate_rules="$update_temp_dir/subscriptions"
+  candidate_sources="$update_temp_dir/sources"
+  mkdir -p "$candidate_rules" "$candidate_sources"
+  status_lines="$update_temp_dir/status.ndjson"
+  : > "$status_lines"
+
+  jq -c '[.subscriptions[] | select(.type == "route-rule")] | sort_by(.priority, .tag)[]' "$subscriptions_config" |
+  while IFS= read -r entry; do
+    tag=$(printf '%s' "$entry" | jq -r '.tag')
+    name=$(printf '%s' "$entry" | jq -r '.name // .tag')
+    category=$(printf '%s' "$entry" | jq -r '.category')
+    enabled=$(printf '%s' "$entry" | jq -r '.enabled')
+    format=$(printf '%s' "$entry" | jq -r '.format')
+    action=$(printf '%s' "$entry" | jq -r '.action')
+    url=$(printf '%s' "$entry" | jq -r '.url')
+    expected=$(printf '%s' "$entry" | jq -r '.sha256 // empty')
+    source_file="$candidate_sources/$tag.source"
+    source_json="$update_temp_dir/$tag.json"
+    output_file="$candidate_rules/$tag.srs"
+
+    if [ "$enabled" = true ]; then
+      printf '[%s] downloading\n' "$tag"
+      curl --fail --location --silent --show-error --retry 3 --retry-all-errors --connect-timeout 20 --max-time 300 \
+        --user-agent 'chezmoi-sing-box-rules/1' --output "$source_file" "$url"
+      actual=$(sha256_file "$source_file")
+      if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
+        printf 'Checksum mismatch for %s\n' "$tag" >&2
+        exit 1
+      fi
+      case "$format" in
+        adguard)
+          sing-box rule-set convert --type adguard --output "$output_file" "$source_file"
+          ;;
+        source)
+          sing-box rule-set compile --output "$output_file" "$source_file"
+          ;;
+        hosts|domain-list|ip-list|clash)
+          node "$source_parser" "$source_file" "$format" "$source_json" "$action"
+          sing-box rule-set compile --output "$output_file" "$source_json"
+          ;;
+      esac
+    else
+      printf '[%s] disabled (empty rule set)\n' "$tag"
+      actual=""
+      printf '{"version":4,"rules":[]}\n' > "$source_json"
+      sing-box rule-set compile --output "$output_file" "$source_json"
+    fi
+    chmod 600 "$output_file"
+    jq -nc --arg tag "$tag" --arg name "$name" --arg category "$category" --argjson enabled "$enabled" \
+      --arg source_sha256 "$actual" --argjson bytes "$(wc -c < "$output_file" | tr -d ' ')" \
+      '{tag:$tag,name:$name,category:$category,enabled:$enabled,source_sha256:$source_sha256,compiled_bytes:$bytes}' >> "$status_lines"
+  done
+
+  candidate_route="$update_temp_dir/route-candidate.json"
+  generate_route "$candidate_rules" "$candidate_route"
+  sing-box check -c "$base_config" -c "$private_config" -c "$safe_search_config" -c "$candidate_route"
+
+  final_route="$update_temp_dir/route-final.json"
+  generate_route "$subscriptions_dir" "$final_route"
+  route_changed=true
+  if [ -f "$route_config" ] && cmp -s "$route_config" "$final_route"; then
+    route_changed=false
+  fi
+
+  cleanup_dir "$previous_dir"
+  mkdir -p "$previous_dir/subscriptions"
+  for old_file in "$subscriptions_dir"/*.srs; do
+    [ -f "$old_file" ] && cp -p "$old_file" "$previous_dir/subscriptions/"
+  done
+  [ -f "$route_config" ] && cp -p "$route_config" "$previous_dir/20-route.json"
+
+  for new_file in "$candidate_rules"/*.srs; do
+    mv -f "$new_file" "$subscriptions_dir/$(basename "$new_file")"
+  done
+  for new_source in "$candidate_sources"/*.source; do
+    [ -f "$new_source" ] && mv -f "$new_source" "$sources_dir/$(basename "$new_source")"
+  done
+  mv -f "$final_route" "$route_config"
+  jq -s --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{updated_at:$updated_at,sources:.}' "$status_lines" > "$generated_dir/update-status.json"
+
+  if ! sing-box check -c "$base_config" -c "$private_config" -c "$safe_search_config" -c "$route_config"; then
+    printf '%s\n' 'Final validation failed; restoring previous rule files.' >&2
+    for previous_file in "$previous_dir/subscriptions"/*.srs; do
+      [ -f "$previous_file" ] && cp -p "$previous_file" "$subscriptions_dir/$(basename "$previous_file")"
+    done
+    [ -f "$previous_dir/20-route.json" ] && cp -p "$previous_dir/20-route.json" "$route_config"
+    exit 1
+  fi
+
+  printf '%s\n' 'Rule subscriptions updated and applied successfully.'
+  if [ "$route_changed" = true ] && pgrep -x sing-box >/dev/null 2>&1; then
+    printf '%s\n' 'Route structure changed; restart sing-box once. Future enable/disable updates reload automatically.'
+  fi
+}
+
+check_config() {
+  require_command sing-box
+  require_file "$base_config"
+  require_file "$private_config"
+  require_file "$safe_search_config"
+  require_file "$route_config"
+  require_file "$rules_dir/manual-allow.srs"
+  require_file "$rules_dir/manual-block.srs"
+  sing-box check -c "$base_config" -c "$private_config" -c "$safe_search_config" -c "$route_config"
+}
+
+safe_search_changed=false
+
+case ${1:-} in
+  compile)
+    compile_local_rules
+    check_config
+    if [ "$safe_search_changed" = true ] && pgrep -x sing-box >/dev/null 2>&1; then
+      printf '%s\n' 'Safe-search DNS rules changed; restart sing-box once to apply them.'
+    fi
+    ;;
+  update)
+    compile_local_rules
+    update_subscriptions
+    if [ "$safe_search_changed" = true ] && pgrep -x sing-box >/dev/null 2>&1; then
+      printf '%s\n' 'Safe-search DNS rules changed; restart sing-box once to apply them.'
+    fi
+    ;;
+  check)
+    check_config
+    ;;
+  run)
+    check_config
+    exec sudo sing-box run -c "$base_config" -c "$private_config" -c "$safe_search_config" -c "$route_config"
+    ;;
+  status)
+    pid=$(pgrep -x sing-box | head -n 1 || true)
+    if [ -z "$pid" ]; then
+      printf '%s\n' 'sing-box is not running'
+      exit 1
+    fi
+    ps -p "$pid" -o pid,user,etime,command
+    if [ "$(uname -s)" = Darwin ]; then
+      top -l 1 -stats pid,command,mem -pid "$pid" 2>/dev/null | tail -n 3
+    fi
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

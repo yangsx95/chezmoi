@@ -97,6 +97,28 @@ chezmoi update
 | `.docker/daemon.json` | Docker 镜像加速器（中国镜像） |
 | `.config/gh/config.yml` | GitHub CLI 配置（SSH 协议） |
 
+### sing-box
+
+仓库管理 sing-box 的基础配置、路由顺序和小型个人黑白名单。节点凭据、
+大型规则源及编译后的大型 `.srs` 文件保存在
+`~/.local/share/sing-box/`，不会进入 Git。
+
+```bash
+sing-box-managed compile  # 编译个人规则并生成安全搜索 DNS 配置
+sing-box-managed update   # 下载、编译、校验并应用启用的订阅
+sing-box-managed check    # 校验外部大规则及完整配置
+sing-box-managed run      # 校验后以管理员权限运行
+sing-box-managed status   # 查看进程和内存占用
+```
+
+所有路由规则与安全搜索订阅统一记录在
+`~/.config/sing-box/rule-subscriptions.json`，通过 `type` 区分 `route-rule` 和
+`dns-rewrite`。订阅原文与生成配置都保存在仓库外；运行 `sing-box-managed compile`
+或 `update` 会自动刷新，下载、解析或校验失败时不会覆盖现有规则。
+
+生成路由会劫持 TCP/UDP 53 到 sing-box DNS、拒绝 TCP/UDP 853，并使用 HaGeZi
+的 DoH-only 域名与 IP 订阅阻断已知浏览器加密 DNS 端点。
+
 ---
 
 ## WSL 特有说明

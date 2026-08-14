@@ -1,0 +1,20 @@
+{
+  "version": 4,
+  "rules": [
+    {
+      "domain": [
+        "creator.douyin.com",
+        "lf-zt.douyin.com",
+        "sso.douyin.com",
+        "renzheng.douyin.com",
+        "p0-creator-media-private.douyin.com",
+        "creator.amemv.com",
+        "lf-douyin-security-h5.amemv.com",
+        "lf-fe-douyin-account.amemv.com",
+        "s3.bytecdn.cn",
+        "s3a.bytecdn.cn",
+        "mcs.zijieapi.com"
+      ]
+    }
+  ]
+}
