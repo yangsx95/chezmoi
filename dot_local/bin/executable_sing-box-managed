@@ -76,14 +76,7 @@ generate_route() {
       | sort_by(.priority, .tag)) as $items
     | {
         route: {
-          rules: (
-            [
-              {network:["tcp","udp"],port:53,action:"hijack-dns"},
-              {network:["tcp","udp"],port:853,action:"reject"},
-              {action:"sniff"}
-            ]
-            + [$items[] | route_rule]
-          ),
+          rules: [$items[] | route_rule],
           rule_set: [$items[] | {
             type:"local",
             tag:.tag,
@@ -146,9 +139,16 @@ compile_local_rules() {
   fi
   chmod 600 "$candidate_safe_search_config"
 
+  candidate_route_config=""
+  if [ -f "$route_config" ]; then
+    candidate_route_config="$safe_search_temp_dir/20-route.json"
+    generate_route "$subscriptions_dir" "$candidate_route_config"
+    chmod 600 "$candidate_route_config"
+  fi
+
   if [ -f "$base_config" ] && [ -f "$private_config" ]; then
-    if [ -f "$route_config" ]; then
-      if ! sing-box check -c "$base_config" -c "$private_config" -c "$candidate_safe_search_config" -c "$route_config"; then
+    if [ -n "$candidate_route_config" ]; then
+      if ! sing-box check -c "$base_config" -c "$private_config" -c "$candidate_safe_search_config" -c "$candidate_route_config"; then
         exit 1
       fi
     elif ! sing-box check -c "$base_config" -c "$private_config" -c "$candidate_safe_search_config"; then
@@ -161,6 +161,15 @@ compile_local_rules() {
   else
     mv -f "$candidate_safe_search_config" "$safe_search_config"
     safe_search_changed=true
+  fi
+
+  if [ -n "$candidate_route_config" ]; then
+    if cmp -s "$route_config" "$candidate_route_config"; then
+      unlink "$candidate_route_config"
+    else
+      mv -f "$candidate_route_config" "$route_config"
+      safe_search_changed=true
+    fi
   fi
 
   if [ "$enabled_safe_search_count" -gt 0 ]; then
@@ -330,14 +339,14 @@ case ${1:-} in
     compile_local_rules
     check_config
     if [ "$safe_search_changed" = true ] && pgrep -x sing-box >/dev/null 2>&1; then
-      printf '%s\n' 'Safe-search DNS rules changed; restart sing-box once to apply them.'
+      printf '%s\n' 'Safe-search rules changed; restart sing-box once to apply them.'
     fi
     ;;
   update)
     compile_local_rules
     update_subscriptions
     if [ "$safe_search_changed" = true ] && pgrep -x sing-box >/dev/null 2>&1; then
-      printf '%s\n' 'Safe-search DNS rules changed; restart sing-box once to apply them.'
+      printf '%s\n' 'Safe-search rules changed; restart sing-box once to apply them.'
     fi
     ;;
   check)

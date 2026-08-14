@@ -17,6 +17,10 @@ update`. Advertising and tracking subscriptions are not defined.
 probes locally so unsupported reverse-discovery queries do not wait 10 seconds
 and continuously emit timeout warnings.
 
+DNS-rewrite subscriptions also generate route destination overrides. The
+browser keeps the original hostname for TLS, while the selected proxy connects
+to the safe-search target instead of resolving the unrestricted hostname again.
+
 The downloaded lists and generated configurations stay outside the repository.
 Running `compile` refreshes DNS-rewrite subscriptions and personal rules;
 `update` refreshes everything atomically. A failed download or validation leaves

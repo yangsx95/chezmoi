@@ -11,6 +11,29 @@
       }
     ]
   },
+  "route": {
+    "rules": [
+      {
+        "network": [
+          "tcp",
+          "udp"
+        ],
+        "port": 53,
+        "action": "hijack-dns"
+      },
+      {
+        "network": [
+          "tcp",
+          "udp"
+        ],
+        "port": 853,
+        "action": "reject"
+      },
+      {
+        "action": "sniff"
+      }
+    ]
+  },
   "inbounds": [
     {
       "type": "tun",

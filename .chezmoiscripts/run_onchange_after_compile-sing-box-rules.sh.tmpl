@@ -1,10 +1,13 @@
 #!/bin/sh
 set -eu
 
-# Re-run when a chezmoi-managed personal rule source or subscription config changes.
+# Re-run when a managed input or compiler implementation changes.
 # manual-allow: {{ include "dot_config/private_sing-box/rules-src/manual-allow.json" | sha256sum }}
 # manual-block: {{ include "dot_config/private_sing-box/rules-src/manual-block.json" | sha256sum }}
 # subscriptions: {{ include "dot_config/private_sing-box/rule-subscriptions.json" | sha256sum }}
+# base-config: {{ include "dot_config/private_sing-box/config.d/00-base.json" | sha256sum }}
+# manager: {{ include "dot_local/bin/executable_sing-box-managed" | sha256sum }}
+# safe-search-generator: {{ include "dot_local/libexec/sing-box-safe-search-generate.mjs" | sha256sum }}
 
 if ! command -v sing-box >/dev/null 2>&1; then
   printf '%s\n' 'sing-box is not installed; skipping personal rule compilation.' >&2

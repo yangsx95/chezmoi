@@ -23,6 +23,10 @@ const suppressLocalDiscovery = config.dns_rewrite.suppress_local_discovery ?? tr
 if (typeof suppressLocalDiscovery !== "boolean") {
   throw new Error("Invalid rule-subscriptions.json: dns_rewrite.suppress_local_discovery must be a boolean");
 }
+const routeOutbound = config.route?.final;
+if (typeof routeOutbound !== "string" || !routeOutbound) {
+  throw new Error("Invalid rule-subscriptions.json: route.final must name the safe-search outbound");
+}
 
 const domainPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const tagPattern = /^[a-z0-9][a-z0-9-]*$/;
@@ -71,6 +75,7 @@ for (const subscription of config.subscriptions.filter(({ type }) => type === "d
 }
 
 const rules = [];
+const routeDomainsByTarget = new Map();
 if (suppressLocalDiscovery) {
   // macOS probes these unicast DNS-SD discovery names continuously. Public and
   // ordinary LAN resolvers commonly leave them unanswered, which otherwise
@@ -82,6 +87,9 @@ if (suppressLocalDiscovery) {
   });
 }
 for (const { domain, recordType, target } of mappings.values()) {
+  if (!routeDomainsByTarget.has(target)) routeDomainsByTarget.set(target, new Set());
+  routeDomainsByTarget.get(target).add(domain);
+
   if (recordType === "CNAME") {
     rules.push({
       domain,
@@ -107,4 +115,16 @@ for (const { domain, recordType, target } of mappings.values()) {
   });
 }
 
-await writeFile(outputPath, `${JSON.stringify({ dns: { rules } }, null, 2)}\n`, { mode: 0o600 });
+// DNS rewriting alone is insufficient when the selected proxy re-resolves the
+// original hostname. Preserve the safe-search endpoint at the route boundary
+// while leaving the browser's TLS SNI and HTTP Host untouched.
+const routeRules = [...routeDomainsByTarget.entries()]
+  .sort(([left], [right]) => left.localeCompare(right))
+  .map(([target, domains]) => ({
+    domain: [...domains].sort(),
+    action: "route",
+    outbound: routeOutbound,
+    override_address: target,
+  }));
+
+await writeFile(outputPath, `${JSON.stringify({ dns: { rules }, route: { rules: routeRules } }, null, 2)}\n`, { mode: 0o600 });
