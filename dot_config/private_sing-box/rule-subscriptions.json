@@ -235,6 +235,7 @@
     }
   ],
   "dns_rewrite": {
-    "ttl": 300
+    "ttl": 300,
+    "suppress_local_discovery": true
   }
 }

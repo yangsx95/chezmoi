@@ -19,6 +19,10 @@ const ttl = config.dns_rewrite.ttl ?? 300;
 if (!Number.isInteger(ttl) || ttl < 0 || ttl > 86400) {
   throw new Error("Invalid rule-subscriptions.json: dns_rewrite.ttl must be an integer from 0 to 86400");
 }
+const suppressLocalDiscovery = config.dns_rewrite.suppress_local_discovery ?? true;
+if (typeof suppressLocalDiscovery !== "boolean") {
+  throw new Error("Invalid rule-subscriptions.json: dns_rewrite.suppress_local_discovery must be a boolean");
+}
 
 const domainPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const tagPattern = /^[a-z0-9][a-z0-9-]*$/;
@@ -67,6 +71,16 @@ for (const subscription of config.subscriptions.filter(({ type }) => type === "d
 }
 
 const rules = [];
+if (suppressLocalDiscovery) {
+  // macOS probes these unicast DNS-SD discovery names continuously. Public and
+  // ordinary LAN resolvers commonly leave them unanswered, which otherwise
+  // produces a 10-second timeout and a warning for every probe.
+  rules.push({
+    domain_regex: ["^(?:b|db|r|dr|lb)\\._dns-sd\\._udp\\..+\\.(?:in-addr|ip6)\\.arpa$"],
+    action: "predefined",
+    rcode: "NXDOMAIN",
+  });
+}
 for (const { domain, recordType, target } of mappings.values()) {
   if (recordType === "CNAME") {
     rules.push({

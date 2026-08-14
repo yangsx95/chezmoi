@@ -13,6 +13,10 @@ entries with `type: "dns-rewrite"` generate safe-search DNS responses. Change an
 entry's `enabled` value to select subscriptions, then run `sing-box-managed
 update`. Advertising and tracking subscriptions are not defined.
 
+`dns_rewrite.suppress_local_discovery` answers macOS unicast DNS-SD discovery
+probes locally so unsupported reverse-discovery queries do not wait 10 seconds
+and continuously emit timeout warnings.
+
 The downloaded lists and generated configurations stay outside the repository.
 Running `compile` refreshes DNS-rewrite subscriptions and personal rules;
 `update` refreshes everything atomically. A failed download or validation leaves

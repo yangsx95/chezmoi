@@ -192,6 +192,7 @@ update_subscriptions() {
     and (.subscriptions | type == "array" and length > 0)
     and ([.subscriptions[].tag] | length == (unique | length))
     and (.dns_rewrite.ttl | type == "number" and . >= 0 and . <= 86400)
+    and (.dns_rewrite.suppress_local_discovery | type == "boolean")
     and all(.subscriptions[];
       (.tag | test("^[a-z0-9][a-z0-9-]*$"))
       and (.category | type == "string" and length > 0)
