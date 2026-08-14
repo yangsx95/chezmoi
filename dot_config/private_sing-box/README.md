@@ -24,6 +24,10 @@ DoH-only domain and IP lists block known encrypted-DNS endpoints after protocol
 sniffing. These lists do not include HaGeZi's broader VPN/proxy or advertising
 categories.
 
+On this macOS host the DNS module uses the local DHCP resolver bound to `en0`.
+Binding the physical interface prevents the upstream DNS connection from being
+captured again by the TUN port-53 hijack.
+
 Example:
 
 ```json

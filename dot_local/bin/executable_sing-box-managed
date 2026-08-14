@@ -67,6 +67,10 @@ generate_route() {
       elif .action == "direct" then "direct"
       else .outbound
       end;
+    def route_rule:
+      if .action == "block" then {rule_set:.tag,action:"reject"}
+      else {rule_set:.tag,outbound:(outbound)}
+      end;
     (([.manual_rules[] | . + {kind:"manual"}]
       + [.subscriptions[] | select(.type == "route-rule") | {tag,priority,action,outbound,kind:"subscription"}])
       | sort_by(.priority, .tag)) as $items
@@ -78,7 +82,7 @@ generate_route() {
               {network:["tcp","udp"],port:853,action:"reject"},
               {action:"sniff"}
             ]
-            + [$items[] | {rule_set:.tag,outbound:(outbound)}]
+            + [$items[] | route_rule]
           ),
           rule_set: [$items[] | {
             type:"local",
