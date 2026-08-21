@@ -1,7 +1,7 @@
 {
   "version": 1,
   "route": {
-    "final": "CleanWeb",
+    "final": "proxy",
     "auto_detect_interface": true
   },
   "manual_rules": [
@@ -63,7 +63,7 @@
     },
     {
       "tag": "security-supplement",
-      "name": "CleanWeb · Security Supplement",
+      "name": "Security Supplement",
       "category": "security",
       "enabled": true,
       "priority": 120,
@@ -96,7 +96,7 @@
     },
     {
       "tag": "adult-supplement",
-      "name": "CleanWeb · Adult Supplement",
+      "name": "Adult Supplement",
       "category": "pornography",
       "enabled": true,
       "priority": 410,
@@ -129,7 +129,7 @@
     },
     {
       "tag": "entertainment-games",
-      "name": "CleanWeb · Games",
+      "name": "Games",
       "category": "entertainment",
       "enabled": true,
       "priority": 500,
@@ -140,7 +140,7 @@
     },
     {
       "tag": "entertainment-short-video",
-      "name": "CleanWeb · Short Video",
+      "name": "Short Video",
       "category": "entertainment",
       "enabled": true,
       "priority": 510,
@@ -151,7 +151,7 @@
     },
     {
       "tag": "entertainment-social",
-      "name": "CleanWeb · Social",
+      "name": "Social",
       "category": "entertainment",
       "enabled": true,
       "priority": 520,
@@ -162,7 +162,7 @@
     },
     {
       "tag": "strict-adult-keywords",
-      "name": "CleanWeb · Strict Adult Keywords",
+      "name": "Strict Adult Keywords",
       "category": "strict",
       "enabled": true,
       "priority": 600,
@@ -173,7 +173,7 @@
     },
     {
       "tag": "strict-gambling-keywords",
-      "name": "CleanWeb · Strict Gambling Keywords",
+      "name": "Strict Gambling Keywords",
       "category": "strict",
       "enabled": true,
       "priority": 610,
@@ -184,7 +184,7 @@
     },
     {
       "tag": "strict-restricted-platforms",
-      "name": "CleanWeb · Restricted Platforms",
+      "name": "Restricted Platforms",
       "category": "strict",
       "enabled": true,
       "priority": 620,
@@ -195,7 +195,7 @@
     },
     {
       "tag": "strict-risky-tlds",
-      "name": "CleanWeb · Risky TLDs",
+      "name": "Risky TLDs",
       "category": "strict",
       "enabled": true,
       "priority": 630,
