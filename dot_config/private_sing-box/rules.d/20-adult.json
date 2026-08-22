@@ -13,7 +13,6 @@
       "local_rules": [
         {
           "domain_suffix": [
-            "vanlett.net",
             "wuye.tv",
             "zktv.asia"
           ]
@@ -38,7 +37,8 @@
             "xnxx",
             "xvideo",
             "xxx",
-            "zukong"
+            "zukong",
+            "vanlett"
           ]
         }
       ]
