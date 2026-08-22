@@ -2,10 +2,19 @@
 set -eu
 
 # Re-run when a managed input or compiler implementation changes.
-# manual-allow: {{ include "dot_config/private_sing-box/rules-src/manual-allow.json" | sha256sum }}
-# manual-block: {{ include "dot_config/private_sing-box/rules-src/manual-block.json" | sha256sum }}
 # subscriptions: {{ include "dot_config/private_sing-box/rule-subscriptions.json" | sha256sum }}
-# base-config: {{ include "dot_config/private_sing-box/config.d/00-base.json" | sha256sum }}
+# base-config: {{ include "dot_config/private_sing-box/config.d/00-base.json.tmpl" | sha256sum }}
+# dns-control: {{ include "dot_config/private_sing-box/rules.d/01-dns-control.json" | sha256sum }}
+# security: {{ include "dot_config/private_sing-box/rules.d/10-security.json" | sha256sum }}
+# adult: {{ include "dot_config/private_sing-box/rules.d/20-adult.json" | sha256sum }}
+# drugs: {{ include "dot_config/private_sing-box/rules.d/25-drugs.json" | sha256sum }}
+# gambling: {{ include "dot_config/private_sing-box/rules.d/30-gambling.json" | sha256sum }}
+# games: {{ include "dot_config/private_sing-box/rules.d/40-games.json" | sha256sum }}
+# short-video: {{ include "dot_config/private_sing-box/rules.d/50-short-video.json" | sha256sum }}
+# social: {{ include "dot_config/private_sing-box/rules.d/60-social.json" | sha256sum }}
+# search: {{ include "dot_config/private_sing-box/rules.d/70-search.json" | sha256sum }}
+# risky-tlds: {{ include "dot_config/private_sing-box/rules.d/80-risky-tlds.json" | sha256sum }}
+# china-direct: {{ include "dot_config/private_sing-box/rules.d/90-china-direct.json" | sha256sum }}
 # manager: {{ include "dot_local/bin/executable_sing-box-managed" | sha256sum }}
 # safe-search-generator: {{ include "dot_local/libexec/sing-box-safe-search-generate.mjs" | sha256sum }}
 

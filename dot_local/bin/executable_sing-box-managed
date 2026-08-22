@@ -31,6 +31,31 @@ require_command() { command -v "$1" >/dev/null 2>&1 || { printf 'Missing require
 require_file() { [ -f "$1" ] || { printf 'Missing required file: %s\n' "$1" >&2; exit 1; }; }
 cleanup_dir() { [ -d "$1" ] && find "$1" -depth -delete; }
 
+publish_rules() {
+  candidate_path=$1
+  releases_dir="$data_dir/rules-releases"
+  release_path="$releases_dir/$(date +%s)-$$"
+  next_link="$data_dir/.rules-next-$$"
+  mkdir -p "$releases_dir"
+  mv "$candidate_path" "$release_path"
+  ln -s "$release_path" "$next_link"
+
+  if [ -L "$rules_dir" ]; then
+    # BSD mv needs -h to replace a symlink rather than move into its target;
+    # GNU mv uses -T for the equivalent no-target-directory behavior.
+    if ! mv -fh "$next_link" "$rules_dir" 2>/dev/null; then
+      mv -fT "$next_link" "$rules_dir"
+    fi
+    return
+  fi
+
+  if [ -e "$rules_dir" ]; then
+    legacy_path="$releases_dir/legacy-$(date +%s)-$$"
+    mv "$rules_dir" "$legacy_path"
+  fi
+  mv "$next_link" "$rules_dir"
+}
+
 definition_files() {
   set -- "$rules_config_dir"/*.json
   [ -f "$1" ] || { printf 'No category rule files found in %s\n' "$rules_config_dir" >&2; exit 1; }
@@ -129,8 +154,7 @@ compile_rules() {
   candidate_route="$work_dir/20-route.json"; generate_route "$candidate_route" "$candidate_rules"
   sing-box check -c "$base_config" -c "$private_config" -c "$safe_config" -c "$candidate_route"
   final_route="$work_dir/20-route-final.json"; generate_route "$final_route"
-  cleanup_dir "$rules_dir"; mkdir -p "$rules_dir"
-  for file in "$candidate_rules"/*.srs; do mv -f "$file" "$rules_dir/$(basename "$file")"; done
+  publish_rules "$candidate_rules"
   for file in "$candidate_sources"/*.source; do [ -f "$file" ] && mv -f "$file" "$sources_dir/$(basename "$file")"; done
   sing-box check -c "$base_config" -c "$private_config" -c "$safe_config" -c "$final_route"
   mv -f "$safe_config" "$safe_search_config"; mv -f "$final_route" "$route_config"

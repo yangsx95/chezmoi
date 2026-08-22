@@ -63,6 +63,60 @@ fi
 # ────────────────────────────────────────
 # 函数：配置 WSL
 # ────────────────────────────────────────
+merge_wsl_config() {
+    local source_file=$1
+    local output_file=$2
+
+    awk -v default_user="$USER" '
+        function append_missing(section) {
+            if (section == "[boot]" && !has_systemd) {
+                print "systemd=true"
+                has_systemd = 1
+            }
+            if (section == "[user]" && !has_default_user) {
+                print "default=" default_user
+                has_default_user = 1
+            }
+            if (section == "[interop]" && !has_append_windows_path) {
+                print "appendWindowsPath=false"
+                has_append_windows_path = 1
+            }
+        }
+
+        /^\[[^]]+\][[:space:]]*$/ {
+            append_missing(section)
+            section = $0
+            if (section == "[boot]") has_boot = 1
+            if (section == "[user]") has_user = 1
+            if (section == "[interop]") has_interop = 1
+            print
+            next
+        }
+        section == "[boot]" && /^[[:space:]]*systemd[[:space:]]*=/ {
+            if (!has_systemd) print "systemd=true"
+            has_systemd = 1
+            next
+        }
+        section == "[user]" && /^[[:space:]]*default[[:space:]]*=/ {
+            if (!has_default_user) print "default=" default_user
+            has_default_user = 1
+            next
+        }
+        section == "[interop]" && /^[[:space:]]*appendWindowsPath[[:space:]]*=/ {
+            if (!has_append_windows_path) print "appendWindowsPath=false"
+            has_append_windows_path = 1
+            next
+        }
+        { print }
+        END {
+            append_missing(section)
+            if (!has_boot) print "\n[boot]\nsystemd=true"
+            if (!has_user) print "\n[user]\ndefault=" default_user
+            if (!has_interop) print "\n[interop]\nappendWindowsPath=false"
+        }
+    ' "$source_file" > "$output_file"
+}
+
 configure_wsl() {
     if [ "$OS" != "wsl" ]; then
         return
@@ -70,16 +124,13 @@ configure_wsl() {
 
     echo -e "${YELLOW}检查 WSL 配置...${NC}"
 
-    local tmp_file
+    local tmp_file source_file
     tmp_file="$(mktemp)"
-
-    cat > "$tmp_file" <<EOF
-[boot]
-systemd=true
-
-[user]
-default=${USER}
-EOF
+    source_file=/etc/wsl.conf
+    if [ ! -f "$source_file" ]; then
+        source_file=/dev/null
+    fi
+    merge_wsl_config "$source_file" "$tmp_file"
 
     if [ -f /etc/wsl.conf ] && cmp -s "$tmp_file" /etc/wsl.conf; then
         echo -e "${GREEN}/etc/wsl.conf 已配置，跳过。${NC}"
@@ -87,7 +138,7 @@ EOF
         return
     fi
 
-    echo -e "${CYAN}写入 /etc/wsl.conf，关闭 Windows PATH 注入（需要 sudo）...${NC}"
+    echo -e "${CYAN}更新 /etc/wsl.conf，保留其他配置并关闭 Windows PATH 注入（需要 sudo）...${NC}"
     sudo install -m 0644 "$tmp_file" /etc/wsl.conf
     rm -f "$tmp_file"
     echo -e "${YELLOW}WSL 配置需在 Windows 中执行 wsl --shutdown 后重新打开才会完全生效。${NC}"

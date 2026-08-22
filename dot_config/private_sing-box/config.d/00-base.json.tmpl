@@ -6,8 +6,8 @@
     "servers": [
       {
         "type": "local",
-        "tag": "dns-direct",
-        "bind_interface": "en0"
+        "tag": "dns-direct"{{ if eq .chezmoi.os "darwin" }},
+        "bind_interface": "en0"{{ end }}
       }
     ]
   },
