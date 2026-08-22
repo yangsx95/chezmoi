@@ -26,12 +26,14 @@ usage() {
     '           Use -d to keep it running after this command exits' \
     '  stop     Stop the running sing-box process' \
     '  restart  Stop, verify, and start sing-box in the background' \
-    '  status   Show the running sing-box process and memory footprint'
+    '  status   Show service status, uptime, and memory usage'
 }
 
 require_command() { command -v "$1" >/dev/null 2>&1 || { printf 'Missing required command: %s\n' "$1" >&2; exit 1; }; }
 require_file() { [ -f "$1" ] || { printf 'Missing required file: %s\n' "$1" >&2; exit 1; }; }
 cleanup_dir() { [ -d "$1" ] && find "$1" -depth -delete; }
+sing_box_pid() { pgrep -x sing-box | head -n 1 || true; }
+sing_box_running() { pgrep -x sing-box >/dev/null 2>&1; }
 
 publish_rules() {
   candidate_path=$1
@@ -186,7 +188,7 @@ run_sing_box() {
   if [ -z "$background" ]; then
     exec sudo sing-box run -c "$base_config" -c "$private_config" -c "$route_config" -c "$safe_search_config"
   fi
-  if pgrep -x sing-box >/dev/null 2>&1; then
+  if sing_box_running; then
     printf '%s\n' 'sing-box is already running; stop it before starting another instance.' >&2
     exit 1
   fi
@@ -195,7 +197,7 @@ run_sing_box() {
   sudo -b /bin/sh -c 'exec "$1" run -c "$2" -c "$3" -c "$4" -c "$5" >> "$6" 2>&1' sh \
     "$sing_box_binary" "$base_config" "$private_config" "$route_config" "$safe_search_config" "$log_file"
   sleep 1
-  pid=$(pgrep -x sing-box | head -n 1 || true)
+  pid=$(sing_box_pid)
   if [ -z "$pid" ]; then
     printf 'sing-box did not stay running; inspect %s\n' "$log_file" >&2
     exit 1
@@ -204,14 +206,14 @@ run_sing_box() {
 }
 
 stop_sing_box() {
-  if ! pgrep -x sing-box >/dev/null 2>&1; then
+  if ! sing_box_running; then
     printf '%s\n' 'sing-box is not running'
     return
   fi
 
   sudo pkill -x sing-box
   attempts=0
-  while pgrep -x sing-box >/dev/null 2>&1; do
+  while sing_box_running; do
     attempts=$((attempts + 1))
     if [ "$attempts" -ge 5 ]; then
       printf '%s\n' 'sing-box did not stop cleanly; inspect the running process.' >&2
@@ -228,12 +230,14 @@ restart_sing_box() {
 }
 
 status_sing_box() {
-  pid=$(pgrep -x sing-box | head -n 1 || true)
+  pid=$(sing_box_pid)
   [ -n "$pid" ] || { printf '%s\n' 'sing-box is not running'; exit 1; }
+  user=$(ps -p "$pid" -o user= | tr -d ' ')
+  elapsed=$(ps -p "$pid" -o etime= | tr -d ' ')
   rss_kib=$(ps -p "$pid" -o rss= | tr -d ' ')
   memory_mib=$(awk -v rss_kib="$rss_kib" 'BEGIN { printf "%.1f MiB", rss_kib / 1024 }')
-  printf 'PID %s | Memory %s\n' "$pid" "$memory_mib"
-  ps -p "$pid" -o pid,user,etime,command
+  printf '%s\n' 'Service: running'
+  printf 'PID: %s\nUser: %s\nUptime: %s\nMemory: %s\n' "$pid" "$user" "$elapsed" "$memory_mib"
 }
 
 case ${1:-} in
