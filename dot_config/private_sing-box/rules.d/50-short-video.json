@@ -98,6 +98,18 @@
         }
       ],
       "local_rules": []
+    },
+    {
+      "tag": "safe-search-youtube",
+      "name": "AdGuard YouTube Safe Search Rewrites",
+      "type": "dns-rewrite",
+      "enabled": true,
+      "sources": [
+        {
+          "format": "adguard-dnsrewrite",
+          "url": "https://adguardteam.github.io/HostlistsRegistry/assets/youtube_safe_search.txt"
+        }
+      ]
     }
   ]
 }

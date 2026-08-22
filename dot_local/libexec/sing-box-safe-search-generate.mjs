@@ -33,6 +33,38 @@ const tagPattern = /^[a-z0-9][a-z0-9-]*$/;
 const subscriptionTags = new Set();
 const mappings = new Map();
 
+function normalizeMapping(rawMapping, source) {
+  const domain = typeof rawMapping.domain === "string" ? rawMapping.domain.toLowerCase().replace(/\.$/, "") : "";
+  const recordType = rawMapping.record_type;
+  const target = typeof rawMapping.target === "string" ? rawMapping.target.toLowerCase().replace(/\.$/, "") : "";
+  if (!domainPattern.test(domain)) {
+    throw new Error(`${source}: invalid domain: ${domain}`);
+  }
+  if (recordType !== "CNAME" && recordType !== "A" && recordType !== "AAAA") {
+    throw new Error(`${source}: invalid record type: ${recordType}`);
+  }
+  if (recordType === "CNAME" ? !domainPattern.test(target) : isIP(target) === 0) {
+    throw new Error(`${source}: invalid ${recordType} target: ${target}`);
+  }
+  return { domain, recordType, target };
+}
+
+function addMapping(mapping, source) {
+  const existing = mappings.get(mapping.domain);
+  if (existing && JSON.stringify(existing) !== JSON.stringify(mapping)) {
+    throw new Error(`${source}: conflicting safe-search rewrite for ${mapping.domain}`);
+  }
+  mappings.set(mapping.domain, mapping);
+}
+
+const localMappings = config.dns_rewrite.local_mappings ?? [];
+if (!Array.isArray(localMappings)) {
+  throw new Error("Invalid rule-subscriptions.json: dns_rewrite.local_mappings must be an array");
+}
+for (const mapping of localMappings) {
+  addMapping(normalizeMapping(mapping, "local safe-search rewrite"), "local safe-search rewrite");
+}
+
 for (const subscription of config.subscriptions.filter(({ type }) => type === "dns-rewrite")) {
   if (!tagPattern.test(subscription.tag ?? "") || typeof subscription.enabled !== "boolean" || subscription.format !== "adguard-dnsrewrite" || typeof subscription.url !== "string" || !subscription.url) {
     throw new Error("Invalid safe-search subscription: each entry needs a valid tag and URL");
@@ -55,22 +87,8 @@ for (const subscription of config.subscriptions.filter(({ type }) => type === "d
       throw new Error(`${subscription.tag}:${index + 1}: unsupported DNS rewrite: ${line}`);
     }
 
-    const domain = match[1].toLowerCase().replace(/\.$/, "");
-    const recordType = match[2];
-    const target = match[3].toLowerCase().replace(/\.$/, "");
-    if (!domainPattern.test(domain)) {
-      throw new Error(`${subscription.tag}:${index + 1}: invalid domain: ${domain}`);
-    }
-    if (recordType === "CNAME" ? !domainPattern.test(target) : isIP(target) === 0) {
-      throw new Error(`${subscription.tag}:${index + 1}: invalid ${recordType} target: ${target}`);
-    }
-
-    const existing = mappings.get(domain);
-    const mapping = { domain, recordType, target };
-    if (existing && JSON.stringify(existing) !== JSON.stringify(mapping)) {
-      throw new Error(`Conflicting safe-search rewrites for ${domain}`);
-    }
-    mappings.set(domain, mapping);
+    const source = `${subscription.tag}:${index + 1}`;
+    addMapping(normalizeMapping({ domain: match[1], record_type: match[2], target: match[3] }, source), source);
   }
 }
 

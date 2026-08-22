@@ -7,6 +7,18 @@
   "rules_directory": "rules.d",
   "dns_rewrite": {
     "ttl": 300,
-    "suppress_local_discovery": true
+    "suppress_local_discovery": true,
+    "local_mappings": [
+      {
+        "domain": "www.google.com",
+        "record_type": "CNAME",
+        "target": "forcesafesearch.google.com"
+      },
+      {
+        "domain": "www.google.com.hk",
+        "record_type": "CNAME",
+        "target": "forcesafesearch.google.com"
+      }
+    ]
   }
 }

@@ -12,6 +12,14 @@
       "sources": [],
       "local_rules": [
         {
+          "domain": [
+            "baidu.com",
+            "m.baidu.com",
+            "wap.baidu.com",
+            "www.baidu.com"
+          ]
+        },
+        {
           "domain_suffix": [
             "ask.com",
             "duckduckgo.com",
@@ -53,18 +61,6 @@
             "yastatic.net",
             "you.com"
           ]
-        }
-      ]
-    },
-    {
-      "tag": "safe-search-youtube",
-      "name": "AdGuard YouTube Safe Search Rewrites",
-      "type": "dns-rewrite",
-      "enabled": true,
-      "sources": [
-        {
-          "format": "adguard-dnsrewrite",
-          "url": "https://adguardteam.github.io/HostlistsRegistry/assets/youtube_safe_search.txt"
         }
       ]
     }

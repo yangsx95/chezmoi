@@ -11,19 +11,21 @@ generated_dir="$data_dir/generated"
 private_config="$data_dir/private/10-outbounds.json"
 base_config="$config_dir/00-base.json"
 route_config="$generated_dir/20-route.json"
-safe_search_config="$generated_dir/10-safe-search.json"
+safe_search_config="$generated_dir/30-safe-search.json"
 safe_search_generator="$HOME/.local/libexec/sing-box-safe-search-generate.mjs"
 subscriptions_config="$config_home/sing-box/rule-subscriptions.json"
 rules_config_dir="$config_home/sing-box/rules.d"
 source_parser="$HOME/.local/libexec/sing-box-rule-source-compile.mjs"
 
 usage() {
-  printf '%s\n' 'Usage: sing-box-managed <compile|update|check|run [-d]|status>' '' \
+  printf '%s\n' 'Usage: sing-box-managed <compile|update|check|run [-d]|stop|restart|status>' '' \
     '  compile  Download and compile all enabled category rules' \
     '  update   Alias for compile' \
     '  check    Verify the compiled sing-box configuration' \
     '  run      Check, then run sing-box with administrator privileges' \
     '           Use -d to keep it running after this command exits' \
+    '  stop     Stop the running sing-box process' \
+    '  restart  Stop, verify, and start sing-box in the background' \
     '  status   Show the running sing-box process and memory footprint'
 }
 
@@ -69,6 +71,10 @@ validate_definitions() {
     .version == 1 and (.route.final | type == "string" and length > 0)
     and (.dns_rewrite.ttl | type == "number" and . >= 0 and . <= 86400)
     and (.dns_rewrite.suppress_local_discovery | type == "boolean")
+    and ((.dns_rewrite.local_mappings // []) | type == "array"
+      and all(.[]; (.domain | type == "string" and length > 0)
+        and (.record_type == "CNAME" or .record_type == "A" or .record_type == "AAAA")
+        and (.target | type == "string" and length > 0)))
   ' "$subscriptions_config" >/dev/null || { printf '%s\n' 'Invalid rule-subscriptions.json' >&2; exit 1; }
   # Shell word splitting is intentional: rule definition names may not contain spaces.
   set -- $files
@@ -152,11 +158,11 @@ compile_rules() {
   done
   node "$safe_search_generator" "$safe_input" "$safe_config" "$safe_sources"
   candidate_route="$work_dir/20-route.json"; generate_route "$candidate_route" "$candidate_rules"
-  sing-box check -c "$base_config" -c "$private_config" -c "$safe_config" -c "$candidate_route"
+  sing-box check -c "$base_config" -c "$private_config" -c "$candidate_route" -c "$safe_config"
   final_route="$work_dir/20-route-final.json"; generate_route "$final_route"
   publish_rules "$candidate_rules"
   for file in "$candidate_sources"/*.source; do [ -f "$file" ] && mv -f "$file" "$sources_dir/$(basename "$file")"; done
-  sing-box check -c "$base_config" -c "$private_config" -c "$safe_config" -c "$final_route"
+  sing-box check -c "$base_config" -c "$private_config" -c "$final_route" -c "$safe_config"
   mv -f "$safe_config" "$safe_search_config"; mv -f "$final_route" "$route_config"
   cleanup_dir "$work_dir"; trap - EXIT HUP INT TERM
   printf '%s\n' 'Category rules compiled and applied successfully.'
@@ -167,7 +173,7 @@ check_config() {
   validate_definitions
   definitions=$(definition_files); set -- $definitions
   jq -r -s '.[] | .rule_sets[] | select(.type == "route-rule" and .enabled) | .tag' "$@" | while IFS= read -r tag; do require_file "$rules_dir/$tag.srs"; done
-  sing-box check -c "$base_config" -c "$private_config" -c "$safe_search_config" -c "$route_config"
+  sing-box check -c "$base_config" -c "$private_config" -c "$route_config" -c "$safe_search_config"
 }
 
 run_sing_box() {
@@ -178,7 +184,7 @@ run_sing_box() {
   esac
   check_config
   if [ -z "$background" ]; then
-    exec sudo sing-box run -c "$base_config" -c "$private_config" -c "$safe_search_config" -c "$route_config"
+    exec sudo sing-box run -c "$base_config" -c "$private_config" -c "$route_config" -c "$safe_search_config"
   fi
   if pgrep -x sing-box >/dev/null 2>&1; then
     printf '%s\n' 'sing-box is already running; stop it before starting another instance.' >&2
@@ -187,7 +193,7 @@ run_sing_box() {
   log_file="$data_dir/sing-box.log"
   sing_box_binary=$(command -v sing-box)
   sudo -b /bin/sh -c 'exec "$1" run -c "$2" -c "$3" -c "$4" -c "$5" >> "$6" 2>&1' sh \
-    "$sing_box_binary" "$base_config" "$private_config" "$safe_search_config" "$route_config" "$log_file"
+    "$sing_box_binary" "$base_config" "$private_config" "$route_config" "$safe_search_config" "$log_file"
   sleep 1
   pid=$(pgrep -x sing-box | head -n 1 || true)
   if [ -z "$pid" ]; then
@@ -197,10 +203,36 @@ run_sing_box() {
   printf 'sing-box started in the background (PID %s). Log: %s\n' "$pid" "$log_file"
 }
 
+stop_sing_box() {
+  if ! pgrep -x sing-box >/dev/null 2>&1; then
+    printf '%s\n' 'sing-box is not running'
+    return
+  fi
+
+  sudo pkill -x sing-box
+  attempts=0
+  while pgrep -x sing-box >/dev/null 2>&1; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 5 ]; then
+      printf '%s\n' 'sing-box did not stop cleanly; inspect the running process.' >&2
+      exit 1
+    fi
+    sleep 1
+  done
+  printf '%s\n' 'sing-box stopped'
+}
+
+restart_sing_box() {
+  stop_sing_box
+  run_sing_box -d
+}
+
 case ${1:-} in
   compile|update) compile_rules ;;
   check) check_config ;;
   run) run_sing_box "${2:-}" ;;
-  status) pid=$(pgrep -x sing-box | head -n 1 || true); [ -n "$pid" ] || { printf '%s\n' 'sing-box is not running'; exit 1; }; ps -p "$pid" -o pid,user,etime,command ;;
+  stop) stop_sing_box ;;
+  restart) restart_sing_box ;;
+  status) pid=$(pgrep -x sing-box | head -n 1 || true); [ -n "$pid" ] || { printf '%s\n' 'sing-box is not running'; exit 1; }; ps -p "$pid" -o pid,user,etime,rss,command ;;
   *) usage >&2; exit 2 ;;
 esac
