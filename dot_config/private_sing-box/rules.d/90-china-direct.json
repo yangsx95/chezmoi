@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "category": "China direct routes",
+  "rule_sets": [
+    {
+      "tag": "direct-ip",
+      "name": "Loyalsoldier - China CIDR Routes",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 900,
+      "action": "direct",
+      "sources": [
+        {
+          "format": "clash",
+          "url": "https://raw.githubusercontent.com/Loyalsoldier/surge-rules/release/ruleset/cncidr.txt"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

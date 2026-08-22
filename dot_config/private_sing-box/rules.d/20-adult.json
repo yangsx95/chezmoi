@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "category": "Adult content",
+  "rule_sets": [
+    {
+      "tag": "local-adult",
+      "name": "Local adult content keywords",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_suffix": [
+            "vanlett.net",
+            "wuye.tv",
+            "zktv.asia"
+          ]
+        },
+        {
+          "domain_keyword": [
+            "adult",
+            "avgle",
+            "camgirl",
+            "erotic",
+            "escort",
+            "hentai",
+            "jav",
+            "livecam",
+            "naked",
+            "nude",
+            "onlyfans",
+            "porn",
+            "rule34",
+            "sex",
+            "xhamster",
+            "xnxx",
+            "xvideo",
+            "xxx",
+            "zukong"
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "oisd-nsfw",
+      "name": "OISD - NSFW",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 400,
+      "action": "block",
+      "sources": [
+        {
+          "format": "domain-list",
+          "url": "https://raw.githubusercontent.com/sjhgvr/oisd/main/domainswild2_nsfw.txt"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

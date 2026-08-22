@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "category": "Risky TLDs",
+  "rule_sets": [
+    {
+      "tag": "local-risky-tlds",
+      "name": "Risky TLDs",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_suffix": [
+            "cc",
+            "cfd",
+            "click",
+            "cyou",
+            "fun",
+            "icu",
+            "online",
+            "qpon",
+            "sbs",
+            "site",
+            "top",
+            "xyz"
+          ]
+        }
+      ]
+    }
+  ]
+}

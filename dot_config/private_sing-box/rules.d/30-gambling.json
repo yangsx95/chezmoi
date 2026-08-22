@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "category": "Gambling",
+  "rule_sets": [
+    {
+      "tag": "local-gambling",
+      "name": "Local gambling keywords",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_keyword": [
+            "bingo",
+            "bookmaker",
+            "casino",
+            "gambling",
+            "lottery",
+            "poker"
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "gambling",
+      "name": "StevenBlack - Gambling-only Hosts",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 430,
+      "action": "block",
+      "sources": [
+        {
+          "format": "hosts",
+          "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling-only/hosts"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "gambling-blp",
+      "name": "The Block List Project - Gambling",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 430,
+      "action": "block",
+      "sources": [
+        {
+          "format": "domain-list",
+          "url": "https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/gambling-nl.txt"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

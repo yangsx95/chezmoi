@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "category": "Security",
+  "rule_sets": [
+    {
+      "tag": "fraud",
+      "name": "The Block List Project - Fraud",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 100,
+      "action": "block",
+      "sources": [
+        {
+          "format": "domain-list",
+          "url": "https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/fraud-nl.txt"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "phishing",
+      "name": "The Block List Project - Phishing",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 110,
+      "action": "block",
+      "sources": [
+        {
+          "format": "domain-list",
+          "url": "https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/phishing-nl.txt"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "malware",
+      "name": "URLhaus - Malware Hostfile",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 130,
+      "action": "block",
+      "sources": [
+        {
+          "format": "hosts",
+          "url": "https://urlhaus.abuse.ch/downloads/hostfile/"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

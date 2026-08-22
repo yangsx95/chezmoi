@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "category": "Drugs",
+  "rule_sets": [
+    {
+      "tag": "drugs",
+      "name": "The Block List Project - Drugs",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 420,
+      "action": "block",
+      "sources": [
+        {
+          "format": "domain-list",
+          "url": "https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/drugs-nl.txt"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

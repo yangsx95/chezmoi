@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "category": "Games",
+  "rule_sets": [
+    {
+      "tag": "local-games",
+      "name": "Games",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_suffix": [
+            "37.com",
+            "4399.com",
+            "7k7k.com",
+            "9game.cn",
+            "activision.com",
+            "arknights.global",
+            "bh3.com",
+            "blzstatic.com",
+            "bungie.net",
+            "callofduty.com",
+            "cf.qq.com",
+            "dnf.qq.com",
+            "game.163.com",
+            "game.qq.com",
+            "gryphline.com",
+            "honkaistarrail.com",
+            "hoyolab.com",
+            "hoyoverse.com",
+            "hypergryph.com",
+            "lilith.com",
+            "lilithgame.com",
+            "lol.qq.com",
+            "mihoyo.com",
+            "minecraft.163.com",
+            "my.163.com",
+            "neteasegames.com",
+            "papegames.com",
+            "pvp.qq.com",
+            "pwrd.com",
+            "rbxcdn.com",
+            "shengqugames.com",
+            "taptap.cn",
+            "tencentgames.com",
+            "valorant.com",
+            "wanmei.com",
+            "wegame.com",
+            "wegame.com.cn",
+            "xindong.com",
+            "xyq.163.com",
+            "youzu.com",
+            "yuanshen.com",
+            "zenlesszonezero.com"
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "games-blackmatrix7",
+      "name": "blackmatrix7 - Games",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [
+        {
+          "format": "clash",
+          "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Game/Game.list"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

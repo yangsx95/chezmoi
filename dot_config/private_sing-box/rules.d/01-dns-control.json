@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "category": "DNS control",
+  "rule_sets": [
+    {
+      "tag": "dns-bypass-domains",
+      "name": "HaGeZi - Encrypted DNS Bypass Domains",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 10,
+      "action": "block",
+      "sources": [
+        {
+          "format": "domain-list",
+          "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/doh-onlydomains.txt"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "dns-bypass-ips",
+      "name": "HaGeZi - Encrypted DNS Bypass IPs",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 11,
+      "action": "block",
+      "sources": [
+        {
+          "format": "ip-list",
+          "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/ips/doh.txt"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

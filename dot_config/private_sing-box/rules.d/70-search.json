@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "category": "Search engines",
+  "rule_sets": [
+    {
+      "tag": "local-search",
+      "name": "Blocked search engines",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_suffix": [
+            "ask.com",
+            "duckduckgo.com",
+            "ecosia.org",
+            "kagi.com",
+            "metager.org",
+            "mojeek.com",
+            "perplexity.ai",
+            "qwant.com",
+            "search.brave.com",
+            "search.daum.net",
+            "search.naver.com",
+            "search.yahoo.co.jp",
+            "search.yahoo.com",
+            "seznam.cz",
+            "sm.cn",
+            "so.com",
+            "sogou.com",
+            "startpage.com",
+            "swisscows.com",
+            "ya.ru",
+            "yadi.sk",
+            "yandex.am",
+            "yandex.az",
+            "yandex.by",
+            "yandex.co.il",
+            "yandex.com",
+            "yandex.com.ge",
+            "yandex.com.tr",
+            "yandex.kz",
+            "yandex.md",
+            "yandex.net",
+            "yandex.ru",
+            "yandex.tj",
+            "yandex.tm",
+            "yandex.ua",
+            "yandex.uz",
+            "yandexcloud.net",
+            "yastatic.net",
+            "you.com"
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "safe-search-youtube",
+      "name": "AdGuard YouTube Safe Search Rewrites",
+      "type": "dns-rewrite",
+      "enabled": true,
+      "sources": [
+        {
+          "format": "adguard-dnsrewrite",
+          "url": "https://adguardteam.github.io/HostlistsRegistry/assets/youtube_safe_search.txt"
+        }
+      ]
+    }
+  ]
+}

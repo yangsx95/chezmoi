@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "category": "Short video",
+  "rule_sets": [
+    {
+      "tag": "local-short-video",
+      "name": "Short video",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_suffix": [
+            "bytecdn.cn",
+            "bytedance.com",
+            "bytedance.net",
+            "byteimg.com",
+            "bytedtos.com",
+            "douyin.com",
+            "douyu.com",
+            "douyucdn.cn",
+            "gifshow.com",
+            "huoshan.com",
+            "huya.com",
+            "ibytedapm.com",
+            "iesdouyin.com",
+            "ixgvideo.com",
+            "ksapisrv.com",
+            "kuaishou.com",
+            "msstatic.com",
+            "xhscdn.com",
+            "xiaohongshu.com",
+            "yximgs.com",
+            "yy.com",
+            "zijieapi.com"
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "youtube-blackmatrix7",
+      "name": "blackmatrix7 - YouTube",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [
+        {
+          "format": "clash",
+          "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/YouTube/YouTube.list"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "tiktok-blackmatrix7",
+      "name": "blackmatrix7 - TikTok",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [
+        {
+          "format": "clash",
+          "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/TikTok/TikTok.list"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "douyin-blackmatrix7",
+      "name": "blackmatrix7 - DouYin",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [
+        {
+          "format": "clash",
+          "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/DouYin/DouYin.list"
+        }
+      ],
+      "local_rules": []
+    },
+    {
+      "tag": "bilibili-blackmatrix7",
+      "name": "blackmatrix7 - BiliBili",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [
+        {
+          "format": "clash",
+          "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/BiliBili/BiliBili.list"
+        }
+      ],
+      "local_rules": []
+    }
+  ]
+}

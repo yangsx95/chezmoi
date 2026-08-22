@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "category": "Social media",
+  "rule_sets": [
+    {
+      "tag": "local-social",
+      "name": "Social media",
+      "type": "route-rule",
+      "enabled": true,
+      "priority": 200,
+      "action": "block",
+      "sources": [],
+      "local_rules": [
+        {
+          "domain_suffix": [
+            "cdninstagram.com",
+            "discord.com",
+            "discord.gg",
+            "discordapp.com",
+            "discordapp.net",
+            "ig.me",
+            "instagr.am",
+            "instagram.com",
+            "pinimg.com",
+            "pinterest.com",
+            "redd.it",
+            "reddit.com",
+            "redditmedia.com",
+            "redditstatic.com",
+            "snapchat.com",
+            "t.co",
+            "t.me",
+            "tdesktop.com",
+            "telegra.ph",
+            "telegram.me",
+            "telegram.org",
+            "threads.net",
+            "tmblr.co",
+            "tumblr.co",
+            "tumblr.com",
+            "twimg.com",
+            "twitter.com",
+            "x.com"
+          ]
+        }
+      ]
+    }
+  ]
+}
