@@ -21,7 +21,7 @@
       "tag": "dns-bypass-ips",
       "name": "HaGeZi - Encrypted DNS Bypass IPs",
       "type": "route-rule",
-      "enabled": true,
+      "enabled": false,
       "priority": 11,
       "action": "block",
       "sources": [

@@ -15,10 +15,11 @@ safe_search_config="$generated_dir/30-safe-search.json"
 safe_search_generator="$HOME/.local/libexec/sing-box-safe-search-generate.mjs"
 subscriptions_config="$config_home/sing-box/rule-subscriptions.json"
 rules_config_dir="$config_home/sing-box/rules.d"
+browser_security_profile="$config_home/sing-box/browser-security.mobileconfig"
 source_parser="$HOME/.local/libexec/sing-box-rule-source-compile.mjs"
 
 usage() {
-  printf '%s\n' 'Usage: sing-box-managed <compile|update|check|run [-d]|stop|restart|status>' '' \
+  printf '%s\n' 'Usage: sing-box-managed <compile|update|check|run [-d]|stop|restart|status|browser-security|browser-security-status>' '' \
     '  compile  Download and compile all enabled category rules' \
     '  update   Alias for compile' \
     '  check    Verify the compiled sing-box configuration' \
@@ -26,7 +27,9 @@ usage() {
     '           Use -d to keep it running after this command exits' \
     '  stop     Stop the running sing-box process' \
     '  restart  Stop, verify, and start sing-box in the background' \
-    '  status   Show service status, uptime, and memory usage'
+    '  status   Show service status, uptime, and memory usage' \
+    '  browser-security         Open the managed browser DNS security profile installer' \
+    '  browser-security-status  Show managed browser DNS security settings'
 }
 
 require_command() { command -v "$1" >/dev/null 2>&1 || { printf 'Missing required command: %s\n' "$1" >&2; exit 1; }; }
@@ -90,7 +93,7 @@ validate_definitions() {
       and (.enabled | type == "boolean")
       and (.sources | type == "array")
       and all(.sources[]; (.format == "hosts" or .format == "domain-list" or .format == "ip-list" or .format == "clash" or .format == "source" or .format == "adguard-dnsrewrite") and (.url | type == "string" and startswith("https://")))
-      and (if .type == "route-rule" then (.priority | type == "number") and (.action == "block" or .action == "direct" or (.outbound | type == "string" and length > 0)) and (.local_rules | type == "array") and all(.sources[]; .format != "adguard-dnsrewrite") elif .type == "dns-rewrite" then (.sources | length == 1) and .sources[0].format == "adguard-dnsrewrite" else false end)
+      and (if .type == "route-rule" then (.priority | type == "number") and (.action == "block" or .action == "direct" or (.outbound | type == "string" and length > 0)) and (if has("dns_block") then (.dns_block | type == "boolean") else true end) and (.local_rules | type == "array") and all(.sources[]; .format != "adguard-dnsrewrite") elif .type == "dns-rewrite" then (.sources | length == 1) and .sources[0].format == "adguard-dnsrewrite" else false end)
     )
   ' "$@" >/dev/null || { printf '%s\n' 'Invalid rules.d category definition' >&2; exit 1; }
 }
@@ -103,8 +106,8 @@ generate_route() {
   jq -s --arg rules "$rule_path" --slurpfile common "$subscriptions_config" '
     def outbound: if .action == "block" then "block" elif .action == "direct" then "direct" else .outbound end;
     def route_rule: if .action == "block" then {rule_set:.tag,action:"reject"} else {rule_set:.tag,outbound:(outbound)} end;
-    ([.[] | .rule_sets[] | select(.type == "route-rule" and .enabled) | {tag,priority,action,outbound}] | sort_by(.priority, .tag)) as $items
-    | {route:{rules:[$items[] | route_rule],rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)}}
+    ([.[] | .rule_sets[] | select(.type == "route-rule" and .enabled) | {tag,priority,action,outbound,sources,dns_block:(if has("dns_block") then .dns_block else true end)}] | sort_by(.priority, .tag)) as $items
+    | {route:{rules:[$items[] | route_rule],rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:[$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}]}}
   ' "$@" > "$output_path"
 }
 
@@ -184,6 +187,7 @@ run_sing_box() {
     ''|-d|--background) ;;
     *) usage >&2; exit 2 ;;
   esac
+  ensure_browser_security
   check_config
   if [ -z "$background" ]; then
     exec sudo sing-box run -c "$base_config" -c "$private_config" -c "$route_config" -c "$safe_search_config"
@@ -225,6 +229,7 @@ stop_sing_box() {
 }
 
 restart_sing_box() {
+  ensure_browser_security
   stop_sing_box
   run_sing_box -d
 }
@@ -240,6 +245,35 @@ status_sing_box() {
   printf 'PID: %s\nUser: %s\nUptime: %s\nMemory: %s\n' "$pid" "$user" "$elapsed" "$memory_mib"
 }
 
+apply_browser_security() {
+  require_command open; require_command plutil; require_file "$browser_security_profile"
+  plutil -lint "$browser_security_profile" >/dev/null
+  open "$browser_security_profile"
+  printf '%s\n' 'Opened the browser DNS security profile installer.'
+}
+
+browser_security_installed() {
+  require_command profiles
+  profiles show -type configuration 2>/dev/null | grep -Fq 'profileIdentifier: com.yangshunxiang.singbox.browser-security'
+}
+
+ensure_browser_security() {
+  if browser_security_installed; then
+    return
+  fi
+  apply_browser_security
+  printf '%s\n' 'Install the downloaded Chrome DNS security profile, then run this command again.' >&2
+  exit 1
+}
+
+browser_security_status() {
+  if browser_security_installed; then
+    printf '%s\n' 'Browser security profile is installed'
+  else
+    printf '%s\n' 'Browser security profile is not installed'
+  fi
+}
+
 case ${1:-} in
   compile|update) compile_rules ;;
   check) check_config ;;
@@ -247,5 +281,7 @@ case ${1:-} in
   stop) stop_sing_box ;;
   restart) restart_sing_box ;;
   status) status_sing_box ;;
+  browser-security) apply_browser_security ;;
+  browser-security-status) browser_security_status ;;
   *) usage >&2; exit 2 ;;
 esac
