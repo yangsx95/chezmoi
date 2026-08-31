@@ -43,7 +43,7 @@
       "tag": "youtube-blackmatrix7",
       "name": "blackmatrix7 - YouTube",
       "type": "route-rule",
-      "enabled": true,
+      "enabled": false,
       "priority": 200,
       "action": "block",
       "sources": [
