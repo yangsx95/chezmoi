@@ -146,6 +146,7 @@ generate_dnscrypt_blocklist() {
     | awk 'NF && !seen[$0]++' > "$dnscrypt_allowlist.next"
   mv -f "$dnscrypt_allowlist.next" "$dnscrypt_allowlist"
   chmod 644 "$dnscrypt_allowlist"
+  touch "$dnscrypt_blocklist" "$dnscrypt_allowlist"
   printf 'dnscrypt-proxy blocklist refreshed: %s entries\n' "$(wc -l < "$dnscrypt_blocklist" | tr -d ' ')"
 }
 
