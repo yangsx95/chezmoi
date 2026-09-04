@@ -106,11 +106,12 @@ generate_route() {
   rule_path=${2:-"$rules_dir"}
   files=$(definition_files)
   set -- $files
-  jq -s --arg rules "$rule_path" --slurpfile common "$subscriptions_config" '
+  jq -s --arg rules "$rule_path" --slurpfile common "$subscriptions_config" --slurpfile private "$private_config" '
     def outbound: if .action == "block" then "block" elif .action == "direct" then "direct" else .outbound end;
     def route_rule: if .action == "block" then {rule_set:.tag,action:"reject"} else {rule_set:.tag,outbound:(outbound)} end;
     ([.[] | .rule_sets[] | select(.type == "route-rule" and .enabled) | {tag,priority,action,outbound,sources,dns_block:(if has("dns_block") then .dns_block else true end)}] | sort_by(.priority, .tag)) as $items
-    | {route:{rules:([$items[] | select(.action == "block") | route_rule] + [{ip_version:6,outbound:$common[0].route.final}] + [$items[] | select(.action != "block") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:[$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}]}}
+    | ($private[0].outbounds | map(.server? // empty | select(type == "string" and test("[A-Za-z]"))) | unique) as $proxy_endpoints
+    | {route:{rules:([{domain:$proxy_endpoints,outbound:"direct"}] + [$items[] | select(.action == "block") | route_rule] + [{ip_version:6,outbound:$common[0].route.final}] + [$items[] | select(.action != "block") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:([{domain:$proxy_endpoints,action:"route",server:"dns-direct"}] + [$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}])}}
   ' "$@" > "$output_path"
 }
 

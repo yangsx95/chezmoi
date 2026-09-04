@@ -74,6 +74,8 @@ sing-box-managed status
 On macOS, DNS is sent to a local `dnscrypt-proxy` listener on
 `127.0.0.1:53`. `compile`, `update`, and `dns-sync` refresh its OISD NSFW and
 local blocking rules together with an allowlist for proxy server hostnames.
+The generated sing-box route also places those exact proxy hostnames before
+category blocks, so a risky-TLD rule cannot reject the proxy's own DNS lookup.
 `chezmoi apply` installs sing-box and dnscrypt-proxy, validates and deploys the
 DNS configuration, registers its startup service, and points the en0 network
 service at localhost.
