@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+# service: {{ include "dot_config/private_sing-box/launchd/com.yangshunxiang.sing-box.plist.tmpl" | sha256sum }}
+# log-limit: {{ include "dot_config/private_sing-box/launchd/com.yangshunxiang.sing-box-log-limit.plist.tmpl" | sha256sum }}
+# limiter: {{ include "dot_local/libexec/executable_sing-box-log-limit" | sha256sum }}
+# installer: {{ include "dot_local/libexec/executable_sing-box-launchd-install" | sha256sum }}
+# manager: {{ include "dot_local/bin/executable_sing-box-managed" | sha256sum }}
+
+{{ if eq .chezmoi.os "darwin" -}}
+home_dir="{{ .chezmoi.homeDir }}"
+service_plist="$home_dir/.config/sing-box/launchd/com.yangshunxiang.sing-box.plist"
+limit_plist="$home_dir/.config/sing-box/launchd/com.yangshunxiang.sing-box-log-limit.plist"
+installer="$home_dir/.local/libexec/sing-box-launchd-install"
+
+plutil -lint "$service_plist" "$limit_plist" >/dev/null
+"$home_dir/.local/bin/sing-box-managed" check
+
+osascript - "$installer" "$home_dir" <<'APPLESCRIPT'
+on run argv
+  set installerPath to item 1 of argv
+  set homePath to item 2 of argv
+  do shell script quoted form of installerPath & " " & quoted form of homePath with administrator privileges
+end run
+APPLESCRIPT
+{{ else -}}
+exit 0
+{{ end -}}

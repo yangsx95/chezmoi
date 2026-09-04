@@ -19,6 +19,8 @@ browser_security_profile="$config_home/sing-box/browser-security.mobileconfig"
 source_parser="$HOME/.local/libexec/sing-box-rule-source-compile.mjs"
 dnscrypt_blocklist="$config_home/dnscrypt-proxy/blocked-names.txt"
 dnscrypt_allowlist="$config_home/dnscrypt-proxy/allowed-names.txt"
+launchd_label="com.yangshunxiang.sing-box"
+launchd_plist="/Library/LaunchDaemons/$launchd_label.plist"
 
 usage() {
   printf '%s\n' 'Usage: sing-box-managed <compile|update|dns-sync|check|run [-d]|stop|restart|status|browser-security|browser-security-status>' '' \
@@ -228,6 +230,18 @@ run_sing_box() {
     printf '%s\n' 'sing-box is already running; stop it before starting another instance.' >&2
     exit 1
   fi
+  if [ -f "$launchd_plist" ]; then
+    if launchctl print "system/$launchd_label" >/dev/null 2>&1; then
+      sudo launchctl kickstart "system/$launchd_label"
+    else
+      sudo launchctl bootstrap system "$launchd_plist"
+    fi
+    sleep 1
+    pid=$(sing_box_pid)
+    [ -n "$pid" ] || { printf '%s\n' 'The sing-box launch service did not start.' >&2; exit 1; }
+    printf 'sing-box launch service started (PID %s).\n' "$pid"
+    return
+  fi
   log_file="$data_dir/sing-box.log"
   sing_box_binary=$(command -v sing-box)
   sudo -b /bin/sh -c 'exec "$1" run -c "$2" -c "$3" -c "$4" -c "$5" >> "$6" 2>&1' sh \
@@ -247,7 +261,11 @@ stop_sing_box() {
     return
   fi
 
-  sudo pkill -x sing-box
+  if launchctl print "system/$launchd_label" >/dev/null 2>&1; then
+    sudo launchctl bootout "system/$launchd_label"
+  else
+    sudo pkill -x sing-box
+  fi
   attempts=0
   while sing_box_running; do
     attempts=$((attempts + 1))
@@ -262,6 +280,15 @@ stop_sing_box() {
 
 restart_sing_box() {
   ensure_browser_security
+  if launchctl print "system/$launchd_label" >/dev/null 2>&1; then
+    check_config
+    sudo launchctl kickstart -k "system/$launchd_label"
+    sleep 1
+    pid=$(sing_box_pid)
+    [ -n "$pid" ] || { printf '%s\n' 'The sing-box launch service did not restart.' >&2; exit 1; }
+    printf 'sing-box launch service restarted (PID %s).\n' "$pid"
+    return
+  fi
   stop_sing_box
   run_sing_box -d
 }
@@ -275,6 +302,13 @@ status_sing_box() {
   memory_mib=$(awk -v rss_kib="$rss_kib" 'BEGIN { printf "%.1f MiB", rss_kib / 1024 }')
   printf '%s\n' 'Service: running'
   printf 'PID: %s\nUser: %s\nUptime: %s\nMemory: %s\n' "$pid" "$user" "$elapsed" "$memory_mib"
+  if launchctl print "system/$launchd_label" >/dev/null 2>&1; then
+    printf '%s\n' 'Startup: enabled and managed by launchd'
+  elif [ -f "$launchd_plist" ]; then
+    printf '%s\n' 'Startup: installed; activates at next boot or background run'
+  else
+    printf '%s\n' 'Startup: not installed'
+  fi
 }
 
 apply_browser_security() {

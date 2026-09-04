@@ -80,5 +80,12 @@ category blocks, so a risky-TLD rule cannot reject the proxy's own DNS lookup.
 DNS configuration, registers its startup service, and points the en0 network
 service at localhost.
 
+On macOS, chezmoi also installs a root LaunchDaemon for sing-box with
+`RunAtLoad` and `KeepAlive`, so the proxy starts at boot and recovers after an
+unexpected exit. If a manually started instance is already running during
+installation, it is left untouched and launchd takes over at the next boot.
+The sing-box log is checked once per minute; after it exceeds 5 MiB, only the
+newest 1 MiB is retained. No rotated archives are kept.
+
 Edit the relevant file in `rules.d/` through chezmoi. Each enabled route rule
 set compiles to its own `.srs` file outside the repository.

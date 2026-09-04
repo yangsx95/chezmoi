@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+user_home=${1:?Usage: sing-box-launchd-install USER_HOME}
+managed_dir="$user_home/.config/sing-box/launchd"
+service_label="com.yangshunxiang.sing-box"
+limit_label="com.yangshunxiang.sing-box-log-limit"
+service_plist="/Library/LaunchDaemons/$service_label.plist"
+limit_plist="/Library/LaunchDaemons/$limit_label.plist"
+
+[ "$(id -u)" -eq 0 ] || { printf '%s\n' 'This installer must run as root.' >&2; exit 1; }
+install -o root -g wheel -m 644 "$managed_dir/$service_label.plist" "$service_plist"
+install -o root -g wheel -m 644 "$managed_dir/$limit_label.plist" "$limit_plist"
+
+"$user_home/.local/libexec/sing-box-log-limit" "$user_home/.local/share/sing-box/sing-box.log" 5242880 1048576
+launchctl bootout "system/$limit_label" >/dev/null 2>&1 || true
+launchctl bootstrap system "$limit_plist"
+
+if launchctl print "system/$service_label" >/dev/null 2>&1; then
+  printf '%s\n' 'sing-box launch service is already loaded; leaving the running process untouched.'
+elif pgrep -x sing-box >/dev/null 2>&1; then
+  printf '%s\n' 'sing-box is already running manually; startup service will activate at next boot.'
+else
+  launchctl bootstrap system "$service_plist"
+  printf '%s\n' 'sing-box launch service started.'
+fi

@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+log_file=${1:?Usage: sing-box-log-limit LOG_FILE [MAX_BYTES] [KEEP_BYTES]}
+max_bytes=${2:-5242880}
+keep_bytes=${3:-1048576}
+
+case "$max_bytes:$keep_bytes" in
+  *[!0-9:]*|:*|*:) printf '%s\n' 'Log limits must be positive integers.' >&2; exit 2 ;;
+esac
+[ "$keep_bytes" -gt 0 ] && [ "$max_bytes" -gt "$keep_bytes" ] || {
+  printf '%s\n' 'MAX_BYTES must be greater than KEEP_BYTES, and both must be positive.' >&2
+  exit 2
+}
+[ -f "$log_file" ] || exit 0
+
+size=$(stat -f %z "$log_file")
+[ "$size" -le "$max_bytes" ] && exit 0
+
+log_dir=$(dirname "$log_file")
+temporary=$(mktemp "$log_dir/.sing-box-log.XXXXXX")
+trap 'rm -f "$temporary"' EXIT HUP INT TERM
+tail -c "$keep_bytes" "$log_file" > "$temporary"
+cp "$temporary" "$log_file"
+chmod 644 "$log_file"
