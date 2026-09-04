@@ -5,15 +5,21 @@
   "dns": {
     "servers": [
       {
-        "type": "local",
-        "tag": "dns-direct"{{ if eq .chezmoi.os "darwin" }},
-        "bind_interface": "en0"{{ end }}
-      }
+{{ if eq .chezmoi.os "darwin" }}        "type": "udp",
+        "tag": "dns-direct",
+        "server": "127.0.0.1"
+{{ else }}        "type": "local",
+        "tag": "dns-direct"
+{{ end }}      }
     ]
   },
   "route": {
     "rules": [
-      {
+{{ if eq .chezmoi.os "darwin" }}      {
+        "process_name": "dnscrypt-proxy",
+        "outbound": "direct"
+      },
+{{ end }}      {
         "network": [
           "tcp",
           "udp"
@@ -42,7 +48,8 @@
       "strict_route": true,
       "endpoint_independent_nat": true,
       "address": [
-        "198.18.0.1/30"
+        "198.18.0.1/30",
+        "fdfe:dcba:9876::1/126"
       ]
     }
   ]

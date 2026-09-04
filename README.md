@@ -106,6 +106,7 @@ chezmoi update
 ```bash
 sing-box-managed compile  # 编译个人规则并生成安全搜索 DNS 配置
 sing-box-managed update   # 下载、编译、校验并应用启用的订阅
+sing-box-managed dns-sync # 刷新 macOS 独立 DNS 过滤与节点白名单
 sing-box-managed check    # 校验外部大规则及完整配置
 sing-box-managed run      # 校验后以管理员权限运行
 sing-box-managed status   # 查看进程和内存占用
@@ -118,6 +119,8 @@ sing-box-managed status   # 查看进程和内存占用
 
 生成路由会劫持 TCP/UDP 53 到 sing-box DNS、拒绝 TCP/UDP 853，并使用 HaGeZi
 的 DoH-only 域名与 IP 订阅阻断已知浏览器加密 DNS 端点。
+macOS 额外使用本机 `dnscrypt-proxy`（`127.0.0.1:53`）；`compile`/`update`
+会同时同步 OISD NSFW、本地阻断项以及代理节点白名单，使 sing-box 停止时仍有 DNS 过滤。
 
 ---
 

@@ -65,10 +65,15 @@ Commands:
 ```sh
 sing-box-managed compile
 sing-box-managed update
+sing-box-managed dns-sync
 sing-box-managed check
 sing-box-managed run
 sing-box-managed status
 ```
+
+On macOS, DNS is sent to a local `dnscrypt-proxy` listener on
+`127.0.0.1:53`. `compile`, `update`, and `dns-sync` refresh its OISD NSFW and
+local blocking rules together with an allowlist for proxy server hostnames.
 
 Edit the relevant file in `rules.d/` through chezmoi. Each enabled route rule
 set compiles to its own `.srs` file outside the repository.

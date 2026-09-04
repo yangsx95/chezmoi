@@ -17,11 +17,14 @@ subscriptions_config="$config_home/sing-box/rule-subscriptions.json"
 rules_config_dir="$config_home/sing-box/rules.d"
 browser_security_profile="$config_home/sing-box/browser-security.mobileconfig"
 source_parser="$HOME/.local/libexec/sing-box-rule-source-compile.mjs"
+dnscrypt_blocklist="$config_home/dnscrypt-proxy/blocked-names.txt"
+dnscrypt_allowlist="$config_home/dnscrypt-proxy/allowed-names.txt"
 
 usage() {
-  printf '%s\n' 'Usage: sing-box-managed <compile|update|check|run [-d]|stop|restart|status|browser-security|browser-security-status>' '' \
+  printf '%s\n' 'Usage: sing-box-managed <compile|update|dns-sync|check|run [-d]|stop|restart|status|browser-security|browser-security-status>' '' \
     '  compile  Download and compile all enabled category rules' \
     '  update   Alias for compile' \
+    '  dns-sync Refresh the independent dnscrypt-proxy local blocklist' \
     '  check    Verify the compiled sing-box configuration' \
     '  run      Check, then run sing-box with administrator privileges' \
     '           Use -d to keep it running after this command exits' \
@@ -107,7 +110,7 @@ generate_route() {
     def outbound: if .action == "block" then "block" elif .action == "direct" then "direct" else .outbound end;
     def route_rule: if .action == "block" then {rule_set:.tag,action:"reject"} else {rule_set:.tag,outbound:(outbound)} end;
     ([.[] | .rule_sets[] | select(.type == "route-rule" and .enabled) | {tag,priority,action,outbound,sources,dns_block:(if has("dns_block") then .dns_block else true end)}] | sort_by(.priority, .tag)) as $items
-    | {route:{rules:[$items[] | route_rule],rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:[$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}]}}
+    | {route:{rules:([$items[] | select(.action == "block") | route_rule] + [{ip_version:6,outbound:$common[0].route.final}] + [$items[] | select(.action != "block") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:[$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}]}}
   ' "$@" > "$output_path"
 }
 
@@ -118,6 +121,32 @@ generate_safe_search_input() {
   jq -s --slurpfile common "$subscriptions_config" '
     $common[0] + {subscriptions:[.[] | .rule_sets[] | select(.type == "dns-rewrite") | . as $set | .sources[] | {type:"dns-rewrite",tag:$set.tag,name:$set.name,enabled:$set.enabled,format,url}]}
   ' "$@" > "$output_path"
+}
+
+generate_dnscrypt_blocklist() {
+  [ "$(uname -s)" = Darwin ] || return
+  oisd_source="$sources_dir/oisd-nsfw-0.source"
+  require_file "$oisd_source"
+  require_file "$private_config"
+  mkdir -p "$(dirname "$dnscrypt_blocklist")"
+  output="$dnscrypt_blocklist.next"
+  files=$(definition_files); set -- $files
+  {
+    awk 'NF && $1 !~ /^#/ { print $1 }' "$oisd_source"
+    jq -r -s '
+      .[] | .rule_sets[]
+      | select(.type == "route-rule" and .enabled and .action == "block")
+      | .local_rules[]?
+      | (.domain[]?, .domain_suffix[]?, (.domain_keyword[]? | "*" + . + "*"))
+    ' "$@"
+  } | awk 'NF && !seen[$0]++' > "$output"
+  mv -f "$output" "$dnscrypt_blocklist"
+  chmod 644 "$dnscrypt_blocklist"
+  jq -r '.outbounds[] | .server? // empty | select(test("[A-Za-z]"))' "$private_config" \
+    | awk 'NF && !seen[$0]++' > "$dnscrypt_allowlist.next"
+  mv -f "$dnscrypt_allowlist.next" "$dnscrypt_allowlist"
+  chmod 644 "$dnscrypt_allowlist"
+  printf 'dnscrypt-proxy blocklist refreshed: %s entries\n' "$(wc -l < "$dnscrypt_blocklist" | tr -d ' ')"
 }
 
 compile_rules() {
@@ -167,6 +196,7 @@ compile_rules() {
   final_route="$work_dir/20-route-final.json"; generate_route "$final_route"
   publish_rules "$candidate_rules"
   for file in "$candidate_sources"/*.source; do [ -f "$file" ] && mv -f "$file" "$sources_dir/$(basename "$file")"; done
+  generate_dnscrypt_blocklist
   sing-box check -c "$base_config" -c "$private_config" -c "$final_route" -c "$safe_config"
   mv -f "$safe_config" "$safe_search_config"; mv -f "$final_route" "$route_config"
   cleanup_dir "$work_dir"; trap - EXIT HUP INT TERM
@@ -276,6 +306,7 @@ browser_security_status() {
 
 case ${1:-} in
   compile|update) compile_rules ;;
+  dns-sync) generate_dnscrypt_blocklist ;;
   check) check_config ;;
   run) run_sing_box "${2:-}" ;;
   stop) stop_sing_box ;;

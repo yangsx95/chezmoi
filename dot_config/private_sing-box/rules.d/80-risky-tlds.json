@@ -7,7 +7,7 @@
       "name": "Risky TLDs",
       "type": "route-rule",
       "enabled": true,
-      "dns_block": false,
+      "dns_block": true,
       "priority": 200,
       "action": "block",
       "sources": [],
