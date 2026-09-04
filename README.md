@@ -121,6 +121,8 @@ sing-box-managed status   # 查看进程和内存占用
 的 DoH-only 域名与 IP 订阅阻断已知浏览器加密 DNS 端点。
 macOS 额外使用本机 `dnscrypt-proxy`（`127.0.0.1:53`）；`compile`/`update`
 会同时同步 OISD NSFW、本地阻断项以及代理节点白名单，使 sing-box 停止时仍有 DNS 过滤。
+`chezmoi apply` 会自动安装 sing-box 和 dnscrypt-proxy，并校验、部署 DNS 配置、
+注册开机服务及设置系统 DNS。
 
 ---
 

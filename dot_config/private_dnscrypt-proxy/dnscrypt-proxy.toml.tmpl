@@ -1,0 +1,38 @@
+server_names = ['alidns-doh']
+listen_addresses = ['127.0.0.1:53']
+max_clients = 250
+
+ipv4_servers = true
+ipv6_servers = false
+dnscrypt_servers = false
+doh_servers = true
+odoh_servers = false
+require_dnssec = false
+require_nolog = false
+require_nofilter = false
+
+force_tcp = false
+http3 = false
+timeout = 5000
+keepalive = 30
+enable_hot_reload = true
+log_level = 2
+use_syslog = true
+
+cache = true
+cache_size = 4096
+cache_min_ttl = 60
+cache_max_ttl = 86400
+cache_neg_min_ttl = 60
+cache_neg_max_ttl = 600
+
+blocked_query_response = 'hinfo'
+
+[blocked_names]
+blocked_names_file = '{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/blocked-names.txt'
+
+[allowed_names]
+allowed_names_file = '{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/allowed-names.txt'
+
+[static.'alidns-doh']
+stamp = 'sdns://AgAAAAAAAAAACTIyMy41LjUuNSCY49XlNq8pWM0vfxT3BO9KJ20l4zzWXy5l9eTycnwTMAkyMjMuNS41LjUKL2Rucy1xdWVyeQ'

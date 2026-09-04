@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+# config: {{ include "dot_config/private_dnscrypt-proxy/dnscrypt-proxy.toml.tmpl" | sha256sum }}
+
+{{ if eq .chezmoi.os "darwin" -}}
+managed_config="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/dnscrypt-proxy.toml"
+blocklist="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/blocked-names.txt"
+allowlist="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/allowed-names.txt"
+brew_prefix=$(brew --prefix)
+binary=$(brew --prefix dnscrypt-proxy)/sbin/dnscrypt-proxy
+system_config="$brew_prefix/etc/dnscrypt-proxy.toml"
+
+[ -s "$blocklist" ] || { printf 'Missing DNS blocklist: %s\n' "$blocklist" >&2; exit 1; }
+[ -s "$allowlist" ] || { printf 'Missing DNS allowlist: %s\n' "$allowlist" >&2; exit 1; }
+"$binary" -check -config "$managed_config"
+install -m 644 "$managed_config" "$system_config"
+
+network_service=$(networksetup -listnetworkserviceorder | awk '
+  /^\([0-9]+\) / { service=$0; sub(/^\([0-9]+\) /, "", service) }
+  /Device: en0\)/ { print service; exit }
+')
+[ -n "$network_service" ] || { printf '%s\n' 'Could not find the macOS network service for en0.' >&2; exit 1; }
+
+osascript - "$brew_prefix" "$network_service" <<'APPLESCRIPT'
+on run argv
+  set brewPrefix to item 1 of argv
+  set networkService to item 2 of argv
+  set commandText to quoted form of (brewPrefix & "/bin/brew") & " services restart dnscrypt-proxy; " & ¬
+    "/usr/sbin/networksetup -setdnsservers " & quoted form of networkService & " 127.0.0.1; " & ¬
+    "/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder"
+  do shell script commandText with administrator privileges
+end run
+APPLESCRIPT
+{{ else -}}
+exit 0
+{{ end -}}

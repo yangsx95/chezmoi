@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+{{ if eq .chezmoi.os "darwin" -}}
+if ! command -v brew >/dev/null 2>&1; then
+  printf '%s\n' 'Homebrew is required to install network protection tools.' >&2
+  exit 1
+fi
+
+for package in sing-box dnscrypt-proxy; do
+  if ! brew list --versions "$package" >/dev/null 2>&1; then
+    brew install "$package"
+  fi
+done
+{{ else -}}
+exit 0
+{{ end -}}
