@@ -6,6 +6,8 @@
   <string>com.yangshunxiang.sing-box</string>
   <key>ProgramArguments</key>
   <array>
+    <string>{{ .chezmoi.homeDir }}/.local/libexec/sing-box-start-when-network-ready</string>
+    <string>{{ .chezmoi.homeDir }}/.local/share/sing-box/private/10-outbounds.json</string>
     <string>/opt/homebrew/bin/sing-box</string>
     <string>run</string>
     <string>-c</string>

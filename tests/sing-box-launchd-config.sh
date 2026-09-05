@@ -9,6 +9,9 @@ printf '%s' "$service" | plutil -lint - >/dev/null
 printf '%s' "$limiter" | plutil -lint - >/dev/null
 printf '%s' "$service" | grep -q '<key>RunAtLoad</key>'
 printf '%s' "$service" | grep -q '<key>KeepAlive</key>'
+printf '%s' "$service" | grep -q '/\.local/libexec/sing-box-start-when-network-ready</string>'
+printf '%s' "$service" | grep -q '/\.local/share/sing-box/private/10-outbounds.json</string>'
+printf '%s' "$service" | grep -q '/opt/homebrew/bin/sing-box</string>'
 printf '%s' "$limiter" | grep -q '<integer>60</integer>'
 printf '%s' "$limiter" | grep -q '<string>5242880</string>'
 printf '%s' "$limiter" | grep -q '<string>1048576</string>'

@@ -84,6 +84,9 @@ On macOS, chezmoi also installs a root LaunchDaemon for sing-box with
 `RunAtLoad` and `KeepAlive`, so the proxy starts at boot and recovers after an
 unexpected exit. If a manually started instance is already running during
 installation, it is left untouched and launchd takes over at the next boot.
+Before creating the TUN interface, the launch service waits for a default
+route, a working local dnscrypt-proxy response, and a resolvable proxy endpoint
+to pass twice. This leaves normal networking untouched while Wi-Fi is joining.
 The sing-box log is checked once per minute; after it exceeds 5 MiB, only the
 newest 1 MiB is retained. No rotated archives are kept.
 

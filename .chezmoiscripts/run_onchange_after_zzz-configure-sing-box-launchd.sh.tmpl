@@ -4,6 +4,7 @@ set -eu
 # service: {{ include "dot_config/private_sing-box/launchd/com.yangshunxiang.sing-box.plist.tmpl" | sha256sum }}
 # log-limit: {{ include "dot_config/private_sing-box/launchd/com.yangshunxiang.sing-box-log-limit.plist.tmpl" | sha256sum }}
 # limiter: {{ include "dot_local/libexec/executable_sing-box-log-limit" | sha256sum }}
+# network-ready: {{ include "dot_local/libexec/executable_sing-box-start-when-network-ready" | sha256sum }}
 # installer: {{ include "dot_local/libexec/executable_sing-box-launchd-install" | sha256sum }}
 # manager: {{ include "dot_local/bin/executable_sing-box-managed" | sha256sum }}
 

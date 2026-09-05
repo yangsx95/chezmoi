@@ -1,0 +1,66 @@
+#!/bin/sh
+set -eu
+
+private_config=${1:?Usage: sing-box-start-when-network-ready PRIVATE_CONFIG SING_BOX [ARGS...]}
+sing_box_binary=${2:?Usage: sing-box-start-when-network-ready PRIVATE_CONFIG SING_BOX [ARGS...]}
+shift 2
+
+route_command=${SING_BOX_ROUTE_COMMAND:-/sbin/route}
+dig_command=${SING_BOX_DIG_COMMAND:-/usr/bin/dig}
+sleep_command=${SING_BOX_SLEEP_COMMAND:-/bin/sleep}
+jq_command=${SING_BOX_JQ_COMMAND:-/usr/bin/jq}
+retry_seconds=${SING_BOX_NETWORK_RETRY_SECONDS:-2}
+required_checks=${SING_BOX_NETWORK_READY_CHECKS:-2}
+
+case "$retry_seconds:$required_checks" in
+  *[!0-9:]*|:*|*:) printf '%s\n' 'Readiness timing values must be positive integers.' >&2; exit 2 ;;
+esac
+[ "$retry_seconds" -gt 0 ] && [ "$required_checks" -gt 0 ] || {
+  printf '%s\n' 'Readiness timing values must be positive integers.' >&2
+  exit 2
+}
+[ -x "$sing_box_binary" ] || { printf 'Missing sing-box executable: %s\n' "$sing_box_binary" >&2; exit 1; }
+[ -f "$private_config" ] || { printf 'Missing private outbound configuration: %s\n' "$private_config" >&2; exit 1; }
+
+proxy_endpoints=$("$jq_command" -r '[.outbounds[] | .server? // empty | select(type == "string" and test("[A-Za-z]"))] | unique[:5][]' "$private_config")
+
+has_address() {
+  "$dig_command" @127.0.0.1 "$1" A +noall +answer +time=1 +tries=1 2>/dev/null |
+    /usr/bin/awk '$4 == "A" || $4 == "AAAA" { found=1 } END { exit !found }'
+}
+
+has_proxy_address() {
+  [ -z "$proxy_endpoints" ] && return 0
+  while IFS= read -r endpoint; do
+    if has_address "$endpoint"; then
+      return 0
+    fi
+  done <<EOF
+$proxy_endpoints
+EOF
+  return 1
+}
+
+network_ready() {
+  "$route_command" -n get default 2>/dev/null |
+    /usr/bin/awk '/interface:/ && $2 != "" { found=1 } END { exit !found }' || return 1
+  has_address example.com || return 1
+  has_proxy_address
+}
+
+trap 'exit 0' HUP INT TERM
+stable_checks=0
+printf '%s\n' 'Waiting for the default route, local DNS, and a resolvable proxy endpoint.'
+while [ "$stable_checks" -lt "$required_checks" ]; do
+  if network_ready; then
+    stable_checks=$((stable_checks + 1))
+  else
+    stable_checks=0
+  fi
+  if [ "$stable_checks" -lt "$required_checks" ]; then
+    "$sleep_command" "$retry_seconds"
+  fi
+done
+
+printf '%s\n' 'Network readiness checks passed; starting sing-box.'
+exec "$sing_box_binary" "$@"
