@@ -81,12 +81,21 @@ DNS configuration, registers its startup service, and points the en0 network
 service at localhost.
 
 On macOS, chezmoi also installs a root LaunchDaemon for sing-box with
-`RunAtLoad` and `KeepAlive`, so the proxy starts at boot and recovers after an
+`KeepAlive`, so the proxy starts at boot and recovers after an
 unexpected exit. If a manually started instance is already running during
 installation, it is left untouched and launchd takes over at the next boot.
 Before creating the TUN interface, the launch service waits for a default
 route, a working local dnscrypt-proxy response, and a resolvable proxy endpoint
-to pass twice. This leaves normal networking untouched while Wi-Fi is joining.
+to pass twice. It also checks a usable physical IPv4 address and an HTTP
+connectivity response bound to that interface (Apple, with Microsoft fallback).
+Changing interface, gateway, or address resets the stability count. If both
+connectivity services are unavailable, startup waits and logs the reason.
+Run `sing-box-managed doctor` during an outage to compare local DNS, normal
+routing, physical-interface connectivity, and Google Safe Search. The command
+does not change network settings; it sends diagnostic requests to those sites.
+Restart waits up to eight seconds for a process; a process being present does
+not itself prove network health. Waiting reasons are timestamped and logged
+only when they change.
 The sing-box log is checked once per minute; after it exceeds 5 MiB, only the
 newest 1 MiB is retained. No rotated archives are kept.
 

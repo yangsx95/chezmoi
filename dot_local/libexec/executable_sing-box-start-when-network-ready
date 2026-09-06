@@ -9,6 +9,8 @@ route_command=${SING_BOX_ROUTE_COMMAND:-/sbin/route}
 dig_command=${SING_BOX_DIG_COMMAND:-/usr/bin/dig}
 sleep_command=${SING_BOX_SLEEP_COMMAND:-/bin/sleep}
 jq_command=${SING_BOX_JQ_COMMAND:-/usr/bin/jq}
+ifconfig_command=${SING_BOX_IFCONFIG_COMMAND:-/sbin/ifconfig}
+curl_command=${SING_BOX_CURL_COMMAND:-/usr/bin/curl}
 retry_seconds=${SING_BOX_NETWORK_RETRY_SECONDS:-2}
 required_checks=${SING_BOX_NETWORK_READY_CHECKS:-2}
 
@@ -42,25 +44,50 @@ EOF
 }
 
 network_ready() {
-  "$route_command" -n get default 2>/dev/null |
-    /usr/bin/awk '/interface:/ && $2 != "" { found=1 } END { exit !found }' || return 1
+  wait_reason='default route unavailable'
+  route_info=$("$route_command" -n get default 2>/dev/null) || return 1
+  interface=$(printf '%s\n' "$route_info" | /usr/bin/awk '/interface:/ {print $2}')
+  gateway=$(printf '%s\n' "$route_info" | /usr/bin/awk '/gateway:/ {print $2}')
+  case "$interface" in ''|lo*|utun*) return 1 ;; esac
+  wait_reason='interface has no usable IPv4 address'
+  address=$("$ifconfig_command" "$interface" 2>/dev/null | /usr/bin/awk '$1 == "inet" && $2 !~ /^(169\.254\.|127\.|0\.)/ {print $2; exit}')
+  [ -n "$address" ] || return 1
+  network_identity="$interface/$gateway/$address"
+  wait_reason='local DNS unavailable'
   has_address example.com || return 1
-  has_proxy_address
+  wait_reason='proxy endpoint DNS unavailable'
+  has_proxy_address || return 1
+  wait_reason='physical interface connectivity unavailable'
+  # A DNS cache hit alone must not allow TUN to start. Verify the body to
+  # avoid accepting a captive portal redirect or login page as readiness.
+  response=$("$curl_command" --noproxy '*' --interface "$interface" --silent --fail --connect-timeout 2 --max-time 3 http://captive.apple.com/hotspot-detect.html 2>/dev/null) || response=''
+  case "$response" in *'<BODY>Success</BODY>'*) return 0 ;; esac
+  response=$("$curl_command" --noproxy '*' --interface "$interface" --silent --fail --connect-timeout 2 --max-time 3 http://www.msftconnecttest.com/connecttest.txt 2>/dev/null) || response=''
+  [ "$response" = 'Microsoft Connect Test' ]
 }
 
 trap 'exit 0' HUP INT TERM
 stable_checks=0
+previous_network=''
+previous_reason=''
 printf '%s\n' 'Waiting for the default route, local DNS, and a resolvable proxy endpoint.'
 while [ "$stable_checks" -lt "$required_checks" ]; do
   if network_ready; then
+    if [ "$network_identity" != "$previous_network" ]; then stable_checks=0; fi
+    previous_network=$network_identity
     stable_checks=$((stable_checks + 1))
+    wait_reason="stabilizing $interface"
   else
     stable_checks=0
+  fi
+  if [ "$wait_reason" != "$previous_reason" ]; then
+    printf '%s Waiting: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$wait_reason"
+    previous_reason=$wait_reason
   fi
   if [ "$stable_checks" -lt "$required_checks" ]; then
     "$sleep_command" "$retry_seconds"
   fi
 done
 
-printf '%s\n' 'Network readiness checks passed; starting sing-box.'
+printf '%s Network readiness checks passed; starting sing-box.\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"
 exec "$sing_box_binary" "$@"

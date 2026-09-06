@@ -23,7 +23,7 @@ launchd_label="com.yangshunxiang.sing-box"
 launchd_plist="/Library/LaunchDaemons/$launchd_label.plist"
 
 usage() {
-  printf '%s\n' 'Usage: sing-box-managed <compile|update|dns-sync|check|run [-d]|stop|restart|status|browser-security|browser-security-status>' '' \
+  printf '%s\n' 'Usage: sing-box-managed <compile|update|dns-sync|check|run [-d]|stop|restart|status|doctor|browser-security|browser-security-status>' '' \
     '  compile  Download and compile all enabled category rules' \
     '  update   Alias for compile' \
     '  dns-sync Refresh the independent dnscrypt-proxy local blocklist' \
@@ -33,6 +33,7 @@ usage() {
     '  stop     Stop the running sing-box process' \
     '  restart  Stop, verify, and start sing-box in the background' \
     '  status   Show service status, uptime, and memory usage' \
+    '  doctor   Compare DNS, physical interface, normal routing, and proxy connectivity' \
     '  browser-security         Open the managed browser DNS security profile installer' \
     '  browser-security-status  Show managed browser DNS security settings'
 }
@@ -43,6 +44,38 @@ cleanup_dir() { [ -d "$1" ] && find "$1" -depth -delete; }
 sing_box_pid() { pgrep -x sing-box | head -n 1 || true; }
 sing_box_running() { pgrep -x sing-box >/dev/null 2>&1; }
 launchd_loaded() { launchctl print "system/$launchd_label" >/dev/null 2>&1; }
+
+wait_for_start() {
+  attempts=0
+  while ! sing_box_running && [ "$attempts" -lt 8 ]; do
+    sleep 1
+    attempts=$((attempts + 1))
+  done
+}
+
+doctor_sing_box() {
+  status_sing_box || true
+  printf '\nNetwork diagnostics (HTTP response alone does not prove page usability):\n'
+  interface=$(/sbin/route -n get default 2>/dev/null | awk '/interface:/ {print $2}')
+  printf 'Default interface: %s\n' "${interface:-unavailable}"
+  printf '\nLocal DNS:\n'
+  /usr/bin/dig @127.0.0.1 example.com A +time=2 +tries=1 +noall +comments +answer || true
+  for mode in normal physical; do
+    set --
+    if [ "$mode" = physical ]; then
+      case "$interface" in ''|lo*|utun*) printf 'Physical check skipped: no physical default interface\n'; continue ;; esac
+      set -- --interface "$interface"
+    fi
+    for url in https://www.jd.com http://captive.apple.com/hotspot-detect.html; do
+      printf '%s %s: ' "$mode" "$url"
+      /usr/bin/curl --noproxy '*' "$@" --silent --show-error --output /dev/null --connect-timeout 2 --max-time 4 --write-out 'HTTP=%{http_code} time=%{time_total}s\n' "$url" || true
+    done
+  done
+  printf 'Proxy / Safe Search: '
+  /usr/bin/curl --noproxy '*' --silent --show-error --output /dev/null --connect-timeout 2 --max-time 4 --write-out 'HTTP=%{http_code} time=%{time_total}s\n' https://www.google.com || true
+  printf '\nLaunch service:\n'
+  launchctl print "system/$launchd_label" 2>/dev/null | awk '/state =|pid =|runs =|last exit/ {print}' || true
+}
 
 cleanup_old_releases() {
   [ -d "$data_dir/rules-releases" ] || return
@@ -243,7 +276,7 @@ run_sing_box() {
     if sing_box_running; then
       printf '%s\n' 'sing-box is already running under launchd'
     else
-      printf '%s\n' 'sing-box launch service is waiting for network readiness'
+      printf '%s\n' 'sing-box launch service is starting or retrying; use status or doctor for details'
     fi
     return
   fi
@@ -256,12 +289,12 @@ run_sing_box() {
   fi
   if [ -f "$launchd_plist" ]; then
     sudo launchctl bootstrap system "$launchd_plist"
-    sleep 1
+    wait_for_start
     launchd_loaded || { printf '%s\n' 'The sing-box launch service did not load.' >&2; exit 1; }
     if sing_box_running; then
       printf 'sing-box launch service started (PID %s).\n' "$(sing_box_pid)"
     else
-      printf '%s\n' 'sing-box launch service loaded and is waiting for network readiness'
+      printf '%s\n' 'sing-box launch service loaded; process not yet running. Use status or doctor for details.'
     fi
     return
   fi
@@ -306,11 +339,11 @@ restart_sing_box() {
   if launchd_loaded; then
     check_config
     sudo launchctl kickstart -k "system/$launchd_label"
-    sleep 1
+    wait_for_start
     if sing_box_running; then
       printf 'sing-box launch service restarted (PID %s).\n' "$(sing_box_pid)"
     else
-      printf '%s\n' 'sing-box launch service restarted and is waiting for network readiness'
+      printf '%s\n' 'sing-box restart requested; process not yet running. Use status or doctor for details.'
     fi
     return
   fi
@@ -321,8 +354,10 @@ restart_sing_box() {
 status_sing_box() {
   pid=$(sing_box_pid)
   if launchd_loaded && [ -z "$pid" ]; then
-    printf '%s\n' 'Service: waiting for network'
+    printf '%s\n' 'Service: starting or retrying (no sing-box process yet)'
     printf '%s\n' 'Startup: enabled and managed by launchd'
+    launchctl print "system/$launchd_label" 2>/dev/null | awk '/state =|last exit/ {print}' || true
+    printf 'Inspect startup details: %s\n' "$data_dir/sing-box.log"
     return
   fi
   [ -n "$pid" ] || { printf '%s\n' 'Service: not running'; [ ! -f "$launchd_plist" ] || printf '%s\n' 'Startup: installed but not loaded'; exit 1; }
@@ -378,6 +413,7 @@ case ${1:-} in
   stop) stop_sing_box ;;
   restart) restart_sing_box ;;
   status) status_sing_box ;;
+  doctor) doctor_sing_box ;;
   browser-security) apply_browser_security ;;
   browser-security-status) browser_security_status ;;
   *) usage >&2; exit 2 ;;

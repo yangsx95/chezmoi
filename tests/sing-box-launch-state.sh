@@ -10,5 +10,5 @@ printf '%s\n' '#!/bin/sh' 'exit 1' > "$test_dir/pgrep"
 chmod +x "$test_dir/launchctl" "$test_dir/pgrep"
 
 output=$(PATH="$test_dir:$PATH" "$source_root/dot_local/bin/executable_sing-box-managed" status)
-printf '%s\n' "$output" | grep -q 'Service: waiting for network'
+printf '%s\n' "$output" | grep -q 'Service: starting or retrying'
 printf '%s\n' "$output" | grep -q 'Startup: enabled and managed by launchd'
