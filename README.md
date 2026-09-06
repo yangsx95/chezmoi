@@ -120,7 +120,9 @@ sing-box-managed status   # 查看进程和内存占用
 生成路由会劫持 TCP/UDP 53 到 sing-box DNS、拒绝 TCP/UDP 853，并使用 HaGeZi
 的 DoH-only 域名与 IP 订阅阻断已知浏览器加密 DNS 端点。
 macOS 额外使用本机 `dnscrypt-proxy`（`127.0.0.1:53`）；`compile`/`update`
-会同时同步 OISD NSFW、本地阻断项以及代理节点白名单，使 sing-box 停止时仍有 DNS 过滤。
+会从 sing-box 编译后的规则同步全部启用的 DNS 域名阻断项及代理节点精确白名单，
+使 sing-box 停止时仍保持相同的域名过滤。`dns_block: false`、IP/端口拦截和安全搜索重写不属于此同步范围。
+`dns-sync` 使用当前编译产物；修改规则定义或更新订阅后请先执行 `compile`。
 `chezmoi apply` 会自动安装 sing-box 和 dnscrypt-proxy，并校验、部署 DNS 配置、
 注册开机服务及设置系统 DNS。
 

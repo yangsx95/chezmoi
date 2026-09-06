@@ -192,29 +192,18 @@ generate_safe_search_input() {
 
 generate_dnscrypt_blocklist() {
   [ "$(uname -s)" = Darwin ] || return
-  oisd_source="$sources_dir/oisd-nsfw-0.source"
-  require_file "$oisd_source"
+  require_command node; require_command sing-box
   require_file "$private_config"
+  dnscrypt_generator="$HOME/.local/libexec/sing-box-dnscrypt-generate.mjs"
+  require_file "$dnscrypt_generator"
   mkdir -p "$(dirname "$dnscrypt_blocklist")"
-  output="$dnscrypt_blocklist.next"
-  files=$(definition_files); set -- $files
-  {
-    awk 'NF && $1 !~ /^#/ { print $1 }' "$oisd_source"
-    jq -r -s '
-      .[] | .rule_sets[]
-      | select(.type == "route-rule" and .enabled and .action == "block")
-      | .local_rules[]?
-      | (.domain[]?, .domain_suffix[]?, (.domain_keyword[]? | "*" + . + "*"))
-    ' "$@"
-  } | awk 'NF && !seen[$0]++' > "$output"
-  mv -f "$output" "$dnscrypt_blocklist"
-  chmod 644 "$dnscrypt_blocklist"
-  jq -r '.outbounds[] | .server? // empty | select(test("[A-Za-z]"))' "$private_config" \
-    | awk 'NF && !seen[$0]++' > "$dnscrypt_allowlist.next"
-  mv -f "$dnscrypt_allowlist.next" "$dnscrypt_allowlist"
-  chmod 644 "$dnscrypt_allowlist"
-  touch "$dnscrypt_blocklist" "$dnscrypt_allowlist"
-  printf 'dnscrypt-proxy blocklist refreshed: %s entries\n' "$(wc -l < "$dnscrypt_blocklist" | tr -d ' ')"
+  node "$dnscrypt_generator" "$rules_config_dir" "${1:-$rules_dir}" "$private_config" \
+    "${2:-$dnscrypt_blocklist.next}" "${3:-$dnscrypt_allowlist.next}"
+  if [ "$#" -eq 0 ]; then
+    chmod 644 "$dnscrypt_blocklist.next" "$dnscrypt_allowlist.next"
+    mv -f "$dnscrypt_blocklist.next" "$dnscrypt_blocklist"
+    mv -f "$dnscrypt_allowlist.next" "$dnscrypt_allowlist"
+  fi
 }
 
 compile_rules() {
@@ -262,10 +251,15 @@ compile_rules() {
   candidate_route="$work_dir/20-route.json"; generate_route "$candidate_route" "$candidate_rules"
   sing-box check -c "$base_config" -c "$private_config" -c "$candidate_route" -c "$safe_config"
   final_route="$work_dir/20-route-final.json"; generate_route "$final_route"
+  generate_dnscrypt_blocklist "$candidate_rules" "$work_dir/blocked-names.txt" "$work_dir/allowed-names.txt"
   publish_rules "$candidate_rules"
   find "$sources_dir" -type f -name '*.source' -delete
   for file in "$candidate_sources"/*.source; do [ -f "$file" ] && mv -f "$file" "$sources_dir/$(basename "$file")"; done
-  generate_dnscrypt_blocklist
+  if [ "$(uname -s)" = Darwin ]; then
+    chmod 644 "$work_dir/blocked-names.txt" "$work_dir/allowed-names.txt"
+    mv -f "$work_dir/blocked-names.txt" "$dnscrypt_blocklist"
+    mv -f "$work_dir/allowed-names.txt" "$dnscrypt_allowlist"
+  fi
   sing-box check -c "$base_config" -c "$private_config" -c "$final_route" -c "$safe_config"
   mv -f "$safe_config" "$safe_search_config"; mv -f "$final_route" "$route_config"
   cleanup_old_releases

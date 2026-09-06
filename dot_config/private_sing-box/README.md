@@ -72,7 +72,7 @@ sing-box-managed status
 ```
 
 On macOS, DNS is sent to a local `dnscrypt-proxy` listener on
-`127.0.0.1:53`. `compile`, `update`, and `dns-sync` refresh its OISD NSFW and
+`127.0.0.1:53`. `compile`, `update`, and `dns-sync` refresh its compiled DNS-blocking subscriptions and
 local blocking rules together with an allowlist for proxy server hostnames.
 The generated sing-box route also places those exact proxy hostnames before
 category blocks, so a risky-TLD rule cannot reject the proxy's own DNS lookup.
@@ -130,3 +130,15 @@ service operations. Status and diagnostics are loaded on demand from
 `~/.local/libexec/sing-box-diagnostics.sh`; the network-readiness launcher stays
 independent. Rendering helpers only print; diagnostic aggregation is reset for
 each report. An active launcher takes precedence over historical exit errors.
+
+### Independent DNS rule parity
+
+On macOS, `compile`/`update` and `dns-sync` export DNS-blocking domains from
+the compiled sing-box rule sets, including all remote subscriptions. Selection
+uses the same enabled/action/dns_block/source-format conditions as sing-box DNS.
+Exact names retain exact matching, suffixes and keywords retain their matching
+semantics, and proxy endpoint exceptions are exact names. Unsupported regex or
+conditional rules fail conversion rather than silently producing partial coverage.
+`dns-sync` reads the current compiled rules; run `compile` after editing definitions.
+IP/port routing blocks, `dns_block: false` sets, and safe-search rewrites remain
+sing-box-only. Conversion is validated before publishing a new compiled release.
