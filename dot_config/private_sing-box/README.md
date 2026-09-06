@@ -93,6 +93,29 @@ connectivity services are unavailable, startup waits and logs the reason.
 Run `sing-box-managed doctor` during an outage to compare local DNS, normal
 routing, physical-interface connectivity, and Google Safe Search. The command
 does not change network settings; it sends diagnostic requests to those sites.
+`status` also reports the independent dnscrypt-proxy process and launch service,
+and whether the browser security profile can be found. `doctor` verifies local
+block responses for the configured example domains and inspects Chrome/Edge
+managed policy files. Policy files are not proof of runtime enforcement: confirm
+with `chrome://policy` or `edge://policy`. Safari is not covered by the profile.
+
+Use `sing-box-managed --help` (or `<command> --help`) for grouped commands.
+Use `start`, `stop`, and `restart` for daily service management. `start` uses
+launchd when installed; otherwise it reports that the background process has
+no automatic restart. Use `run` for foreground debugging (Ctrl+C stops it),
+after stopping any existing service. `run` takes no arguments; use `start`
+instead of the removed `-d` / `--background` options.
+`logs -n 100` prints recent lines and `logs -n 100 -f` follows the log.
+Unknown or extra arguments exit with code 2 before taking action.
+Status is grouped by component; doctor uses PASS/FAIL/CHECK/SKIP rows.
+`Launch service` (loaded) and `Autostart` (enabled/disabled) are independent.
+Without a sing-box process, status distinguishes an active launcher from a
+previous failed exit; exit codes/signals are historical, not proof of a loop.
+Exit codes: 0 means no definite failure was found, 1 means a required process
+is absent or a definite check failed, and 2 means invalid arguments.
+UNKNOWN, SKIP and CHECK results do not imply success and do not alone cause
+exit 1. For example, an HTTP access-denied response is CHECK, whereas a
+connection failure is FAIL. Browser runtime enforcement remains UNKNOWN.
 Restart waits up to eight seconds for a process; a process being present does
 not itself prove network health. Waiting reasons are timestamped and logged
 only when they change.
@@ -101,3 +124,9 @@ newest 1 MiB is retained. No rotated archives are kept.
 
 Edit the relevant file in `rules.d/` through chezmoi. Each enabled route rule
 set compiles to its own `.srs` file outside the repository.
+
+Code layout: `sing-box-managed` owns argument parsing, rule compilation and
+service operations. Status and diagnostics are loaded on demand from
+`~/.local/libexec/sing-box-diagnostics.sh`; the network-readiness launcher stays
+independent. Rendering helpers only print; diagnostic aggregation is reset for
+each report. An active launcher takes precedence over historical exit errors.

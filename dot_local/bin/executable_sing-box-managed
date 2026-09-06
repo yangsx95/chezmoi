@@ -23,19 +23,58 @@ launchd_label="com.yangshunxiang.sing-box"
 launchd_plist="/Library/LaunchDaemons/$launchd_label.plist"
 
 usage() {
-  printf '%s\n' 'Usage: sing-box-managed <compile|update|dns-sync|check|run [-d]|stop|restart|status|doctor|browser-security|browser-security-status>' '' \
-    '  compile  Download and compile all enabled category rules' \
-    '  update   Alias for compile' \
-    '  dns-sync Refresh the independent dnscrypt-proxy local blocklist' \
-    '  check    Verify the compiled sing-box configuration' \
-    '  run      Check, then run sing-box with administrator privileges' \
-    '           Use -d to keep it running after this command exits' \
-    '  stop     Stop the running sing-box process' \
-    '  restart  Stop, verify, and start sing-box in the background' \
-    '  status   Show service status, uptime, and memory usage' \
-    '  doctor   Compare DNS, physical interface, normal routing, and proxy connectivity' \
-    '  browser-security         Open the managed browser DNS security profile installer' \
-    '  browser-security-status  Show managed browser DNS security settings'
+  printf '%s\n' \
+    'Usage: sing-box-managed <command> [options]' '' \
+    'Service' \
+    '  start                      Start in background; use launchd when installed' \
+    '  stop                       Stop sing-box; independent DNS remains active' \
+    '  restart                    Restart sing-box' '' \
+    'Inspect' \
+    '  status                     Show proxy, DNS service, and browser profile' \
+    '  doctor                     Test DNS, blocking, policies, and connectivity' \
+    '  logs [-n LINES] [-f]        Show recent log lines (default: 50); -f follows' \
+    '  check                      Validate generated configuration' '' \
+    'Debug' \
+    '  run                        Run in foreground; Ctrl+C stops the process' \
+    '                             Requires the existing service to be stopped' '' \
+    'Rules and browser protection' \
+    '  update                     Download and compile rules (alias: compile)' \
+    '  dns-sync                   Refresh the independent DNS blocklist' \
+    '  browser-security           Open browser profile installer' \
+    '  browser-security-status    Show profile installation status' '' \
+    'Help' \
+    '  help, -h, --help           Show this help; <command> --help also works' '' \
+    'Examples' \
+    '  sing-box-managed start' \
+    '  sing-box-managed status' \
+    '  sing-box-managed doctor' \
+    '  sing-box-managed logs -n 100 -f'
+}
+
+section() { printf '\n%s\n' "$1"; }
+field() { printf '  %-18s %s\n' "$1" "$2"; }
+result_row() {
+  printf '  [%-7s] %-32s %s\n' "$1" "$2" "$3"
+}
+argument_error() { printf 'Error: %s\nTry: sing-box-managed --help\n' "$1" >&2; exit 2; }
+
+show_logs() {
+  log_lines=50
+  log_follow=false
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -n|--lines)
+        [ "$#" -ge 2 ] || argument_error 'logs -n requires a line count'
+        log_lines=$2
+        case "$log_lines" in ''|*[!0-9]*) argument_error 'line count must be an integer from 1 to 10000' ;; esac
+        [ "${#log_lines}" -le 5 ] && [ "$log_lines" -ge 1 ] && [ "$log_lines" -le 10000 ] || argument_error 'line count must be from 1 to 10000'
+        shift 2 ;;
+      -f|--follow) log_follow=true; shift ;;
+      *) argument_error "unknown logs option: $1" ;;
+    esac
+  done
+  require_file "$data_dir/sing-box.log"
+  if "$log_follow"; then tail -n "$log_lines" -F "$data_dir/sing-box.log"; else tail -n "$log_lines" "$data_dir/sing-box.log"; fi
 }
 
 require_command() { command -v "$1" >/dev/null 2>&1 || { printf 'Missing required command: %s\n' "$1" >&2; exit 1; }; }
@@ -45,36 +84,18 @@ sing_box_pid() { pgrep -x sing-box | head -n 1 || true; }
 sing_box_running() { pgrep -x sing-box >/dev/null 2>&1; }
 launchd_loaded() { launchctl print "system/$launchd_label" >/dev/null 2>&1; }
 
+load_diagnostics() {
+  diagnostics_module=${SING_BOX_DIAGNOSTICS_MODULE:-"$HOME/.local/libexec/sing-box-diagnostics.sh"}
+  require_file "$diagnostics_module"
+  . "$diagnostics_module"
+}
+
 wait_for_start() {
   attempts=0
   while ! sing_box_running && [ "$attempts" -lt 8 ]; do
     sleep 1
     attempts=$((attempts + 1))
   done
-}
-
-doctor_sing_box() {
-  status_sing_box || true
-  printf '\nNetwork diagnostics (HTTP response alone does not prove page usability):\n'
-  interface=$(/sbin/route -n get default 2>/dev/null | awk '/interface:/ {print $2}')
-  printf 'Default interface: %s\n' "${interface:-unavailable}"
-  printf '\nLocal DNS:\n'
-  /usr/bin/dig @127.0.0.1 example.com A +time=2 +tries=1 +noall +comments +answer || true
-  for mode in normal physical; do
-    set --
-    if [ "$mode" = physical ]; then
-      case "$interface" in ''|lo*|utun*) printf 'Physical check skipped: no physical default interface\n'; continue ;; esac
-      set -- --interface "$interface"
-    fi
-    for url in https://www.jd.com http://captive.apple.com/hotspot-detect.html; do
-      printf '%s %s: ' "$mode" "$url"
-      /usr/bin/curl --noproxy '*' "$@" --silent --show-error --output /dev/null --connect-timeout 2 --max-time 4 --write-out 'HTTP=%{http_code} time=%{time_total}s\n' "$url" || true
-    done
-  done
-  printf 'Proxy / Safe Search: '
-  /usr/bin/curl --noproxy '*' --silent --show-error --output /dev/null --connect-timeout 2 --max-time 4 --write-out 'HTTP=%{http_code} time=%{time_total}s\n' https://www.google.com || true
-  printf '\nLaunch service:\n'
-  launchctl print "system/$launchd_label" 2>/dev/null | awk '/state =|pid =|runs =|last exit/ {print}' || true
 }
 
 cleanup_old_releases() {
@@ -262,10 +283,6 @@ check_config() {
 
 run_sing_box() {
   background=${1:-}
-  case "$background" in
-    ''|-d|--background) ;;
-    *) usage >&2; exit 2 ;;
-  esac
   ensure_browser_security
   check_config
   if launchd_loaded; then
@@ -277,6 +294,7 @@ run_sing_box() {
       printf '%s\n' 'sing-box is already running under launchd'
     else
       printf '%s\n' 'sing-box launch service is starting or retrying; use status or doctor for details'
+      return 1
     fi
     return
   fi
@@ -285,6 +303,7 @@ run_sing_box() {
     exit 1
   fi
   if [ -z "$background" ]; then
+    printf '%s\n' 'Starting in foreground. Ctrl+C stops sing-box; use start for background operation.'
     exec sudo sing-box run -c "$base_config" -c "$private_config" -c "$route_config" -c "$safe_search_config"
   fi
   if [ -f "$launchd_plist" ]; then
@@ -295,11 +314,13 @@ run_sing_box() {
       printf 'sing-box launch service started (PID %s).\n' "$(sing_box_pid)"
     else
       printf '%s\n' 'sing-box launch service loaded; process not yet running. Use status or doctor for details.'
+      return 1
     fi
     return
   fi
   log_file="$data_dir/sing-box.log"
   sing_box_binary=$(command -v sing-box)
+  printf '%s\n' 'launchd is not installed: starting an unmanaged background process (no automatic restart).'
   sudo -b /bin/sh -c 'exec "$1" run -c "$2" -c "$3" -c "$4" -c "$5" >> "$6" 2>&1' sh \
     "$sing_box_binary" "$base_config" "$private_config" "$route_config" "$safe_search_config" "$log_file"
   sleep 1
@@ -344,36 +365,12 @@ restart_sing_box() {
       printf 'sing-box launch service restarted (PID %s).\n' "$(sing_box_pid)"
     else
       printf '%s\n' 'sing-box restart requested; process not yet running. Use status or doctor for details.'
+      return 1
     fi
     return
   fi
   stop_sing_box
-  run_sing_box -d
-}
-
-status_sing_box() {
-  pid=$(sing_box_pid)
-  if launchd_loaded && [ -z "$pid" ]; then
-    printf '%s\n' 'Service: starting or retrying (no sing-box process yet)'
-    printf '%s\n' 'Startup: enabled and managed by launchd'
-    launchctl print "system/$launchd_label" 2>/dev/null | awk '/state =|last exit/ {print}' || true
-    printf 'Inspect startup details: %s\n' "$data_dir/sing-box.log"
-    return
-  fi
-  [ -n "$pid" ] || { printf '%s\n' 'Service: not running'; [ ! -f "$launchd_plist" ] || printf '%s\n' 'Startup: installed but not loaded'; exit 1; }
-  user=$(ps -p "$pid" -o user= | tr -d ' ')
-  elapsed=$(ps -p "$pid" -o etime= | tr -d ' ')
-  rss_kib=$(ps -p "$pid" -o rss= | tr -d ' ')
-  memory_mib=$(awk -v rss_kib="$rss_kib" 'BEGIN { printf "%.1f MiB", rss_kib / 1024 }')
-  printf '%s\n' 'Service: running'
-  printf 'PID: %s\nUser: %s\nUptime: %s\nMemory: %s\n' "$pid" "$user" "$elapsed" "$memory_mib"
-  if launchd_loaded; then
-    printf '%s\n' 'Startup: enabled and managed by launchd'
-  elif [ -f "$launchd_plist" ]; then
-    printf '%s\n' 'Startup: installed; activates at next boot or background run'
-  else
-    printf '%s\n' 'Startup: not installed'
-  fi
+  run_sing_box background
 }
 
 apply_browser_security() {
@@ -397,24 +394,34 @@ ensure_browser_security() {
   exit 1
 }
 
-browser_security_status() {
-  if browser_security_installed; then
-    printf '%s\n' 'Browser security profile is installed'
-  else
-    printf '%s\n' 'Browser security profile is not installed'
-  fi
-}
+# Validate all arguments before any side effects, including stop/restart.
+command_name=${1:-help}
+[ "$#" -eq 0 ] || shift
+case "$command_name" in
+  help|-h|--help) [ "$#" -eq 0 ] || argument_error 'help takes no arguments'; usage; exit 0 ;;
+  start|run|stop|restart|status|doctor|logs|check|compile|update|dns-sync|browser-security|browser-security-status) ;;
+  *) argument_error "unknown command: $command_name" ;;
+esac
+if [ "$#" -eq 1 ]; then
+  case "$1" in -h|--help) usage; exit 0 ;; esac
+fi
+case "$command_name" in
+  logs) show_logs "$@"; exit ;;
+  run) [ "$#" -eq 0 ] || argument_error 'run takes no arguments; use start for background operation' ;;
+  *) [ "$#" -eq 0 ] || argument_error "$command_name takes no arguments" ;;
+esac
 
-case ${1:-} in
+case "$command_name" in
   compile|update) compile_rules ;;
   dns-sync) generate_dnscrypt_blocklist ;;
-  check) check_config ;;
-  run) run_sing_box "${2:-}" ;;
+  check) check_config; result_row PASS Configuration 'valid' ;;
+  start) run_sing_box background ;;
+  run) run_sing_box ;;
   stop) stop_sing_box ;;
   restart) restart_sing_box ;;
-  status) status_sing_box ;;
-  doctor) doctor_sing_box ;;
+  status) load_diagnostics; status_all ;;
+  doctor) load_diagnostics; doctor_sing_box ;;
   browser-security) apply_browser_security ;;
-  browser-security-status) browser_security_status ;;
+  browser-security-status) load_diagnostics; browser_security_status ;;
   *) usage >&2; exit 2 ;;
 esac
