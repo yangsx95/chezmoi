@@ -178,3 +178,79 @@ cd $(chezmoi source-path)  # 进入仓库目录
 - Shell 默认仅加载 Git、已安装的 autosuggestions 和 syntax-highlighting；保留 `.zshrc.local`、`.zshrc.work` 扩展入口，Node 警告正常显示。
 
 安装保护逻辑可通过 `bash tests/setup-safety.sh` 在模拟环境中验证，不会执行真实安装。
+
+## 音视频转文字（本机识别）
+
+`media-to-text` 使用 [faster-whisper](https://github.com/SYSTRAN/faster-whisper)，在本机 CPU 上识别，不上传音频或视频。支持 macOS、Linux/WSL；PyAV 自带解码库，无需额外安装 FFmpeg。输入视频必须包含音轨，只转录语音，不识别画面文字或区分说话人。
+
+依赖已有的 `uv`。首次运行会自动准备隔离的 Python 3.11 和固定版本的识别库，不修改全局 Python。首次模型下载需显式添加 `--download-model`；模型缓存放在 Hugging Face 默认缓存目录（通常为 `~/.cache/huggingface/hub`），不会进入本仓库。
+
+```bash
+# 应用命令文件（不运行其他 chezmoi 脚本）
+chezmoi apply --exclude scripts ~/.local/bin/media-to-text
+
+# 首次准备 small 模型并转录中文视频
+media-to-text "会议.mp4" --language zh --download-model
+
+# 后续使用本机缓存；彻底禁止 uv 联网可同时设置 UV_OFFLINE=1
+UV_OFFLINE=1 media-to-text "会议.mp4" --language zh
+
+# 不指定语言和模型：自动选择本机模型，再检测语种
+UV_OFFLINE=1 media-to-text "录音.m4a"
+
+# 自动检测语言，批量识别音频、视频，输出到指定目录
+media-to-text "录音.m4a" "访谈.mp4" -o ./transcripts
+
+# 使用更大的已缓存模型；本机已有 large-v3 缓存时可直接运行
+media-to-text "录音.wav" --model large-v3 --language zh
+
+# 其他输出格式（默认仅 SRT）
+media-to-text "录音.mp3" --format txt
+media-to-text "视频.mov" --format vtt
+media-to-text "录音.m4a" --format json
+media-to-text "视频.mp4" --format all
+
+# 也支持本地 CTranslate2 模型目录
+media-to-text "录音.wav" --model /path/to/model
+```
+
+默认仅生成 `会议.mp4.srt`；`--format all` 生成 TXT、SRT、VTT、JSON 四种文件，保留完整输入文件名以避免不同扩展名之间碰撞。已有输出不会覆盖；确认替换时加 `--overwrite`。批次中单个媒体解码/识别失败会继续处理其他文件，最终返回非零退出码。模型不存在或输出冲突会在处理前报错；无语音时 TXT/SRT 为空，VTT 保留文件头，JSON 保留元数据和空 segments 数组。输出使用 UTF-8。
+
+VTT 使用 `WEBVTT` 文件头及小数点毫秒时间戳，可用于网页字幕。JSON 包含 `source`（输入文件名）、`language`（识别语言）、`duration`（音频总时长，秒）、`text`（全文）和 `segments`（每段的 `id`、`start`、`end`、`text`，时间单位为秒）。
+
+省略 `--model`（或指定 `--model auto`）时，只检查本机完整缓存，依次选择 `small → medium → large-v3-turbo → large-v3 → large-v2 → large-v1 → base → tiny`，优先兼顾 CPU 速度和识别效果。明确指定 `--language en` 时，还会尝试英文专用和蒸馏模型；自动检测语言或中文不会误选英文专用模型。MLX 模型不兼容此后端，不参与选择。没有可用缓存时默认报错，只有显式加 `--download-model` 才下载 `small`。可用 `--model` 手动指定模型或路径；更大模型消耗更多内存与时间。当前使用 CPU/int8，不使用 Apple GPU；识别结果仍需校对，尤其是人名、数字和背景噪声较多的片段。
+
+开发验证：`python3 tests/media-to-text.py`（不下载模型、不读取个人媒体）。
+
+### 常用识别参数
+
+```bash
+# 只识别 10～15 分钟；字幕时间仍对应原视频
+media-to-text "会议.mp4" --start 00:10:00 --end 00:15:00
+
+# 提供术语背景，限制字幕每行字符数
+media-to-text "会议.mp4" --initial-prompt "权限中台、DataGrip、租赁" --max-line-width 24
+
+# 递归处理目录，跳过已有结果
+media-to-text ./录音 --recursive --skip-existing -o ./transcripts
+
+# 逐词字幕，以及 JSON 中的词级时间戳
+media-to-text "视频.mp4" --word-timestamps --format all
+
+# 控制资源，关闭静音过滤，隐藏进度
+media-to-text "录音.wav" --threads 2 --no-vad --quiet
+```
+
+| 参数 | 行为 |
+|---|---|
+| `--start` / `--end` | 支持秒数、`MM:SS`、`HH:MM:SS`（含小数秒）；结束必须晚于开始，超出媒体末尾会截到末尾。先解码再裁剪，只识别选定片段；长媒体解码仍需要时间和内存。 |
+| `--initial-prompt` | 提供人名或术语背景，不保证识别正确，也不是摘要指令。 |
+| `--max-line-width` | 限制 SRT/VTT 每行字符数；中文字符按一个字符计，不是屏幕像素宽度。不改变 TXT/JSON 全文或字幕时间。 |
+| `--skip-existing` | 跳过已存在的普通输出文件；`all` 模式只补齐缺失格式。不能与 `--overwrite` 同用；全部结果已存在时不加载模型。不会检查已有内容是否与当前参数匹配。 |
+| `--recursive` | 按扩展名扫描目录中的常见音视频，跳过符号链接和指定输出目录。指定 `-o` 时保留输入根目录名及子目录层级，例如 `录音/会议/a.mp4` 输出到 `transcripts/录音/会议/a.mp4.srt`。 |
+| `--word-timestamps` | SRT/VTT 每个词单独一条字幕；JSON 的每段新增 `words`（`start`、`end`、`word`、`probability`）。词的边界由模型决定，中文不一定按单字划分。TXT 保持全文。 |
+| `--no-vad` | 关闭默认启用的静音过滤，可用于排查轻声漏识别，也可能增加静音误识别和耗时。 |
+| `--threads` | CPU 线程数，正整数，默认 4。 |
+| `--quiet` | 隐藏应用进度和汇总；仍向标准输出打印结果路径，向标准错误打印错误。首次运行时 uv 自身仍可能输出依赖准备日志。 |
+
+默认在标准错误显示文件序号、根据已生成字幕估算的进度、已处理时长、单文件及总耗时；标准输出只放成功输出的文件路径。长时间静音或单段推理期间进度可能暂时不更新。JSON 另外记录 `clip_start`、`clip_end`（秒）；裁剪后的段和词时间戳仍使用原媒体时间轴，`duration` 保留原音频总时长。

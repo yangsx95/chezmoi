@@ -1,0 +1,332 @@
+#!/usr/bin/env -S uv run --script --python 3.11
+# /// script
+# requires-python = ">=3.11,<3.12"
+# dependencies = ["faster-whisper==1.2.1"]
+# ///
+"""Transcribe local audio/video without uploading media."""
+import argparse
+import html
+import json
+import math
+import os
+from pathlib import Path
+import sys
+import tempfile
+import textwrap
+import time
+from types import SimpleNamespace
+
+
+def timestamp(seconds):
+    milliseconds = max(0, round(seconds * 1000))
+    hours, milliseconds = divmod(milliseconds, 3600000)
+    minutes, milliseconds = divmod(milliseconds, 60000)
+    seconds, milliseconds = divmod(milliseconds, 1000)
+    return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
+
+
+def log(args, message):
+    if not args.quiet:
+        print(message, file=sys.stderr)
+
+
+def parse_time(value):
+    try:
+        parts = value.split(':')
+        if len(parts) not in (1, 2, 3):
+            raise ValueError()
+        numbers = [float(p) for p in parts]
+        if any(not math.isfinite(n) or n < 0 for n in numbers):
+            raise ValueError()
+        if len(parts) > 1:
+            if any(not p.isdigit() for p in parts[:-1]) or any(n >= 60 for n in numbers[1:]):
+                raise ValueError()
+        seconds = 0
+        for n in numbers:
+            seconds = seconds * 60 + n
+        return seconds
+    except ValueError:
+        raise argparse.ArgumentTypeError('时间需为非负秒数、MM:SS 或 HH:MM:SS（支持小数秒）')
+
+
+def positive_int(value):
+    try:
+        number = int(value)
+        if number > 0:
+            return number
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError('必须是正整数')
+
+
+def subtitle_segments(segments, word_timestamps):
+    for segment in segments:
+        words = getattr(segment, 'words', None)
+        if word_timestamps and words:
+            for word in words:
+                if word.word.strip():
+                    yield SimpleNamespace(start=word.start, end=word.end, text=word.word)
+        else:
+            yield segment
+
+
+def write_result(target, segments, format_name, overwrite=False, metadata=None, max_line_width=None, word_timestamps=False):
+    """Publish only a complete output; never truncate an existing result on failure."""
+    target = Path(target)
+    fd, temporary = tempfile.mkstemp(prefix='.media-to-text-', dir=target.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as output:
+            if format_name == 'json':
+                items = [{'id': i, 'start': segment.start, 'end': segment.end,
+                          'text': segment.text.strip()} for i, segment in enumerate(segments, 1)]
+                if word_timestamps:
+                    for item, segment in zip(items, segments):
+                        item['words'] = [{'start': w.start, 'end': w.end, 'word': w.word,
+                                          'probability': w.probability}
+                                         for w in (getattr(segment, 'words', None) or [])]
+                payload = dict(metadata or {})
+                payload.update(text='\n'.join(item['text'] for item in items), segments=items)
+                json.dump(payload, output, ensure_ascii=False, indent=2, allow_nan=False)
+                output.write('\n')
+            else:
+                if format_name == 'vtt':
+                    output.write('WEBVTT\n\n')
+                cues = subtitle_segments(segments, word_timestamps) if format_name in ('srt', 'vtt') else segments
+                for index, segment in enumerate(cues, 1):
+                    text = segment.text.strip()
+                    if format_name in ('srt', 'vtt'):
+                        if max_line_width:
+                            text = textwrap.fill(text, width=max_line_width, break_long_words=True, break_on_hyphens=False)
+                        start, end = timestamp(segment.start), timestamp(segment.end)
+                        if format_name == 'vtt':
+                            start, end = start.replace(',', '.'), end.replace(',', '.')
+                            text = html.escape(text, quote=False)
+                        output.write(f"{index}\n{start} --> {end}\n{text}\n\n")
+                    else:
+                        output.write(text + '\n')
+        if overwrite:
+            os.replace(temporary, target)
+        else:
+            # Atomic no-clobber publication, including concurrent invocations.
+            os.link(temporary, target)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def parser():
+    p = argparse.ArgumentParser(description='本机音视频转文字（不上传媒体），输出 SRT（默认）、TXT、VTT 或 JSON。')
+    p.add_argument('files', nargs='+', type=Path, help='本地音频或视频，可传入多个文件')
+    p.add_argument('-o', '--output-dir', type=Path, help='输出目录；默认各输入文件所在目录')
+    p.add_argument('--format', choices=['txt', 'srt', 'vtt', 'json', 'all'], default='srt',
+                   help='输出格式，默认 srt；all 生成全部四种格式')
+    p.add_argument('--model', help='模型名或本地 CTranslate2 模型目录；省略或 auto 自动选择本机缓存')
+    p.add_argument('--language', default='auto', help='auto 自动检测，或 zh/en/ja 等语言代码')
+    p.add_argument('--download-model', action='store_true', help='允许下载缺失模型；默认只用本机模型')
+    existing = p.add_mutually_exclusive_group()
+    existing.add_argument('--overwrite', action='store_true', help='允许替换现有输出（仍禁止覆盖输入媒体）')
+    existing.add_argument('--skip-existing', action='store_true', help='跳过已有输出；all 模式补齐缺失格式')
+    p.add_argument('--start', type=parse_time, default=0.0, help='开始时间：秒数或 HH:MM:SS')
+    p.add_argument('--end', type=parse_time, help='结束时间：秒数或 HH:MM:SS；默认到结尾')
+    p.add_argument('--initial-prompt', help='人名、专业术语等识别背景，不是摘要指令')
+    p.add_argument('--max-line-width', type=positive_int, help='SRT/VTT 每行最多字符数')
+    p.add_argument('--recursive', action='store_true', help='递归扫描输入目录中的常见音视频文件')
+    p.add_argument('--word-timestamps', action='store_true', help='SRT/VTT 逐词字幕；JSON 增加 words 时间戳')
+    p.add_argument('--no-vad', action='store_true', help='关闭静音过滤')
+    p.add_argument('--threads', type=positive_int, default=4, help='CPU 线程数，默认 4')
+    p.add_argument('--quiet', action='store_true', help='仅输出结果路径和错误，隐藏进度')
+    return p
+
+
+MEDIA_EXTENSIONS = {'.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus', '.wma',
+                    '.aiff', '.aif', '.mp4', '.mkv', '.mov', '.webm', '.avi', '.m4v',
+                    '.mpeg', '.mpg', '.ts', '.m2ts', '.mpga', '.3gp', '.wmv'}
+
+
+def plan_outputs(args):
+    formats = ['txt', 'srt', 'vtt', 'json'] if args.format == 'all' else [args.format]
+    if args.end is not None and args.end <= args.start:
+        raise ValueError('--end 必须大于 --start')
+    output_root = args.output_dir.expanduser().resolve() if args.output_dir else None
+    entries = []
+    for item in args.files:
+        item = item.expanduser().resolve()
+        if item.is_dir():
+            if not args.recursive:
+                raise ValueError(f'目录输入需要 --recursive：{item}')
+            if output_root == item:
+                raise ValueError('递归输入目录不能同时作为 -o 输出根目录；省略 -o 可原地输出')
+            for source in sorted(item.rglob('*')):
+                if source.is_symlink() or not source.is_file() or source.suffix.lower() not in MEDIA_EXTENSIONS:
+                    continue
+                if output_root and output_root in source.parents:
+                    continue
+                # Retain directory names so distinct subdirectories don't flatten together.
+                relative = Path(item.name) / source.relative_to(item)
+                entries.append((source.resolve(), relative))
+        elif item.is_file():
+            entries.append((item, Path(item.name)))
+        else:
+            raise ValueError(f'输入文件不存在或不是普通文件：{item}')
+    if not entries:
+        raise ValueError('未找到可处理的音视频文件')
+    inputs = {source for source, _ in entries}
+    outputs, seen = [], set()
+    for source, relative in entries:
+        directory = output_root / relative.parent if output_root else source.parent
+        targets = []
+        for fmt in formats:
+            target = directory / f'{source.name}.{fmt}'
+            if target.resolve() in inputs:
+                raise ValueError(f'输出不能覆盖输入文件：{target}')
+            if target in seen:
+                raise ValueError(f'多个输入会产生同名输出：{target}')
+            seen.add(target)
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                raise ValueError(f'输出不是安全的普通文件：{target}')
+            if target.exists():
+                if args.skip_existing:
+                    log(args, f'跳过已有输出：{target}')
+                    continue
+                if not args.overwrite:
+                    raise ValueError(f'输出已存在：{target}；使用 --skip-existing 或 --overwrite')
+            targets.append((target, fmt))
+        if targets:
+            outputs.append((source, targets))
+    return outputs
+
+
+def prepare_audio(source, args, decoder=None):
+    if not args.start and args.end is None:
+        return str(source), 0.0, None, None
+    if decoder is None:
+        from faster_whisper.audio import decode_audio
+        decoder = decode_audio
+    # Crop before VAD/language detection so excluded audio cannot influence recognition.
+    rate = 16000
+    audio = decoder(str(source), sampling_rate=rate)
+    duration = len(audio) / rate
+    start = int(args.start * rate)
+    end = min(len(audio), int(args.end * rate)) if args.end is not None else len(audio)
+    if start >= end:
+        raise ValueError('指定范围内没有音频；开始时间可能超出媒体时长')
+    return audio[start:end], start / rate, duration, end / rate
+
+
+def collect_segments(segments, offset, args, duration):
+    result = []
+    last_update = 0.0
+    for segment in segments:
+        # The backend's timestamps are relative to the cropped audio.
+        segment.start += offset
+        segment.end += offset
+        for word in getattr(segment, 'words', None) or []:
+            word.start += offset
+            word.end += offset
+        result.append(segment)
+        now = time.monotonic()
+        if now - last_update >= 1:
+            processed = max(0, segment.end - offset)
+            if duration is not None and duration > 0:
+                log(args, f'  进度 {min(100, processed / duration * 100):.0f}%：{min(processed, duration):.1f}/{duration:.1f} 秒')
+            else:
+                log(args, f'  已处理 {processed:.1f} 秒')
+            last_update = now
+    return result
+
+
+def select_model(args, resolver=None):
+    if args.model and args.model != 'auto':
+        return str(Path(args.model).expanduser()) if args.model.startswith('~') else args.model
+    if resolver is None:
+        from faster_whisper.utils import download_model
+        resolver = download_model
+    # Prefer a balanced CPU model. Only select English-only models for explicit en.
+    candidates = ['small', 'medium', 'large-v3-turbo', 'large-v3',
+                  'large-v2', 'large-v1', 'base', 'tiny']
+    if args.language == 'en':
+        candidates += ['small.en', 'medium.en', 'base.en', 'tiny.en',
+                       'distil-large-v3.5', 'distil-large-v3', 'distil-large-v2',
+                       'distil-medium.en', 'distil-small.en']
+    for name in candidates:
+        try:
+            directory = Path(resolver(name, local_files_only=True))
+            required = [directory / n for n in ('model.bin', 'config.json', 'tokenizer.json')]
+            # A snapshot directory can exist even after an interrupted download.
+            vocabulary = list(directory.glob('vocabulary.*'))
+            if not vocabulary or not all(p.is_file() and p.stat().st_size > 0 for p in required):
+                continue
+            if not any(p.is_file() and p.stat().st_size > 0 for p in vocabulary):
+                continue
+        except (OSError, ValueError):
+            continue
+        log(args, f'自动选择已缓存模型：{name}')
+        return str(directory)
+    if args.download_model:
+        log(args, '未找到完整缓存，按授权下载 small 模型。')
+        return 'small'
+    raise ValueError('未找到完整的兼容模型缓存；请用 --model 指定本地模型目录，'
+                     '或联网时添加 --download-model。MLX 模型不兼容当前后端。')
+
+
+def main(argv=None):
+    args = parser().parse_args(argv)
+    started = time.monotonic()
+    try:
+        plans = plan_outputs(args)
+        if not plans:
+            log(args, f'所有输出已存在，无需识别；总耗时 {time.monotonic() - started:.1f} 秒')
+            return 0
+        # Disable Hub telemetry. Media is decoded and inferred entirely locally.
+        os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
+        if not args.download_model:
+            os.environ['HF_HUB_OFFLINE'] = '1'
+        # ONNX VAD must not send diagnostic telemetry; also avoids its macOS
+        # telemetry worker racing with shutdown.
+        import onnxruntime
+        onnxruntime.disable_telemetry_events()
+        from faster_whisper import WhisperModel
+        model_name = select_model(args)
+        log(args, f'加载模型 {model_name}（CPU/int8，{args.threads} 线程）…')
+        model = WhisperModel(model_name, device='cpu', compute_type='int8',
+                             local_files_only=not args.download_model, cpu_threads=args.threads)
+        failures = 0
+        for file_index, (source, targets) in enumerate(plans, 1):
+            try:
+                file_started = time.monotonic()
+                log(args, f'[{file_index}/{len(plans)}] 识别：{source}')
+                audio, offset, original_duration, clip_end = prepare_audio(source, args)
+                segments, info = model.transcribe(
+                    audio, language=None if args.language == 'auto' else args.language,
+                    task='transcribe', vad_filter=not args.no_vad,
+                    initial_prompt=args.initial_prompt, word_timestamps=args.word_timestamps)
+                # The backend is lazy. Finish recognition before publishing any file.
+                duration = getattr(info, 'duration', None)
+                result = collect_segments(segments, offset, args, duration)
+                for target, fmt in targets:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    write_result(target, result, fmt, args.overwrite, metadata={
+                        'source': source.name, 'language': info.language,
+                        'duration': original_duration if original_duration is not None else duration,
+                        'clip_start': offset, 'clip_end': clip_end if clip_end is not None else duration,
+                    }, max_line_width=args.max_line_width, word_timestamps=args.word_timestamps)
+                    print(target)
+                log(args, f'完成（100%）：语言 {info.language}，{len(result)} 段，耗时 {time.monotonic() - file_started:.1f} 秒')
+                if not result:
+                    log(args, '未检测到语音，已生成无字幕段的结果。')
+            except Exception as exc:
+                failures += 1
+                print(f'失败：{source}：{exc}', file=sys.stderr)
+        log(args, f'批量完成：成功 {len(plans) - failures}，失败 {failures}；总耗时 {time.monotonic() - started:.1f} 秒')
+        return 1 if failures else 0
+    except Exception as exc:
+        print(f'错误：{exc}', file=sys.stderr)
+        print('如模型未缓存，可联网时加 --download-model 准备；音视频不会上传。', file=sys.stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print('\n已取消。', file=sys.stderr)
+        sys.exit(130)
