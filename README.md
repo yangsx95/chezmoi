@@ -168,3 +168,13 @@ cd $(chezmoi source-path)  # 进入仓库目录
 ├── .gradle/                          # Gradle 配置
 └── .docker/daemon.json               # Docker 镜像加速
 ```
+
+## 安装与更新的保护措施
+
+- `setup.sh` 更新已有仓库时保留 remote、当前分支和 upstream，不强制覆盖，也不自动重新初始化。
+- 源仓库有未提交或未跟踪文件，或 chezmoi 检测到目标文件相对上次应用存在本地修改时，停止更新。先用 `git status`、`chezmoi diff` 检查；需要保留的目标修改可用 `chezmoi re-add` 收回源仓库，再审查提交。
+- 安装结果按步骤显示成功、跳过或失败。基础依赖和 dotfiles 更新失败会停止；工具链或可选应用失败会继续后续步骤，但最终仍返回非零退出码。
+- `tests/`、`.github/`、`.idea/` 和仓库说明文件不部署到家目录。此前已部署的 `~/tests/` 不会自动删除，请确认内容后自行清理。
+- Shell 默认仅加载 Git、已安装的 autosuggestions 和 syntax-highlighting；保留 `.zshrc.local`、`.zshrc.work` 扩展入口，Node 警告正常显示。
+
+安装保护逻辑可通过 `bash tests/setup-safety.sh` 在模拟环境中验证，不会执行真实安装。

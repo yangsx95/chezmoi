@@ -9,6 +9,13 @@ README.md
 # 安装和配置脚本
 install.sh
 setup.sh
+tests/
+tests/**
+AGENTS.md
+.github/
+.github/**
+.idea/
+.idea/**
 
 # 系统文件
 .DS_Store

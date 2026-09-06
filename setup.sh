@@ -7,6 +7,7 @@
 # ============================================================
 
 set -e
+set -o pipefail
 
 # 颜色定义
 RED='\033[0;31m'
@@ -49,7 +50,7 @@ detect_os() {
 
 OS=$(detect_os)
 
-if [ -z "$OS" ]; then
+if [ -z "$OS" ] || [ "$OS" = unknown ]; then
     echo -e "${RED}无法识别当前操作系统，脚本退出。${NC}"
     exit 1
 fi
@@ -119,7 +120,7 @@ merge_wsl_config() {
 
 configure_wsl() {
     if [ "$OS" != "wsl" ]; then
-        return
+        return 20
     fi
 
     echo -e "${YELLOW}检查 WSL 配置...${NC}"
@@ -135,7 +136,7 @@ configure_wsl() {
     if [ -f /etc/wsl.conf ] && cmp -s "$tmp_file" /etc/wsl.conf; then
         echo -e "${GREEN}/etc/wsl.conf 已配置，跳过。${NC}"
         rm -f "$tmp_file"
-        return
+        return 20
     fi
 
     echo -e "${CYAN}更新 /etc/wsl.conf，保留其他配置并关闭 Windows PATH 注入（需要 sudo）...${NC}"
@@ -154,7 +155,7 @@ install_system_packages() {
         "macos")
             if ! command -v brew &> /dev/null; then
                 echo -e "${YELLOW}未检测到 Homebrew，请先安装 Homebrew 后继续。${NC}"
-                return
+                return 1
             fi
             local brew_packages=(
                 git
@@ -170,12 +171,12 @@ install_system_packages() {
                 git-extras
             )
             echo -e "${CYAN}通过 Homebrew 安装/更新基础工具...${NC}"
-            brew install "${brew_packages[@]}" || echo -e "${YELLOW}部分 Homebrew 包安装失败或已安装，继续执行。${NC}"
+            brew install "${brew_packages[@]}"
             ;;
         "linux"|"wsl")
             if ! command -v apt-get &> /dev/null; then
                 echo -e "${YELLOW}当前 Linux 发行版未检测到 apt-get，跳过系统包自动安装。${NC}"
-                return
+                return 20
             fi
 
             local apt_packages=(
@@ -233,7 +234,7 @@ install_chezmoi() {
 
     if command -v chezmoi &> /dev/null; then
         echo -e "${GREEN}chezmoi 已安装，跳过安装步骤${NC}"
-        return
+        return 20
     fi
 
     echo -e "${CYAN}正在安装 chezmoi ...${NC}"
@@ -262,7 +263,7 @@ install_zsh_stack() {
 
     if ! command -v zsh &> /dev/null; then
         echo -e "${YELLOW}zsh 未安装，跳过 oh-my-zsh 配置。${NC}"
-        return
+        return 1
     fi
 
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -272,7 +273,9 @@ install_zsh_stack() {
         if curl -fsSL --max-time 60 https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$omz_installer"; then
             RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh "$omz_installer"
         else
-            echo -e "${RED}oh-my-zsh 安装脚本下载失败，跳过。${NC}"
+            echo -e "${RED}oh-my-zsh 安装脚本下载失败。${NC}"
+            rm -f "$omz_installer"
+            return 1
         fi
         rm -f "$omz_installer"
     else
@@ -301,6 +304,7 @@ install_zsh_plugin() {
     echo -e "${CYAN}安装 zsh 插件: ${name}${NC}"
     if ! git clone --depth=1 "$repo" "$dest"; then
         echo -e "${YELLOW}${name} 安装失败，后续可手动重试。${NC}"
+        return 1
     fi
 }
 
@@ -308,7 +312,11 @@ set_default_shell_zsh() {
     local zsh_path
     zsh_path="$(command -v zsh)"
     local current_shell
-    current_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)"
+    if [ "$OS" = macos ]; then
+        current_shell="$(dscl . -read "/Users/$USER" UserShell | awk '{print $2}')"
+    else
+        current_shell="$(getent passwd "$USER" | cut -d: -f7)"
+    fi
 
     if [ "$current_shell" = "$zsh_path" ]; then
         echo -e "${GREEN}默认 shell 已是 zsh。${NC}"
@@ -327,6 +335,7 @@ set_default_shell_zsh() {
         echo -e "${GREEN}默认 shell 已通过 sudo 设置为 zsh，新开终端后生效。${NC}"
     else
         echo -e "${YELLOW}自动切换默认 shell 失败，可手动执行: sudo chsh -s ${zsh_path} ${USER}${NC}"
+        return 1
     fi
 }
 
@@ -338,7 +347,7 @@ install_mise() {
 
     if command -v mise &> /dev/null; then
         echo -e "${GREEN}mise 已安装，跳过安装步骤${NC}"
-        return
+        return 20
     fi
 
     echo -e "${CYAN}正在安装 mise ...${NC}"
@@ -350,7 +359,7 @@ install_mise() {
             ;;
         "linux"|"wsl")
             echo -e "${CYAN}使用 curl 安装 mise...${NC}"
-            curl https://mise.jdx.dev/install.sh | sh
+            curl -fsSL --connect-timeout 20 --max-time 180 https://mise.jdx.dev/install.sh | sh
             ;;
     esac
 
@@ -365,73 +374,25 @@ init_or_update_chezmoi() {
 
     echo -e "${YELLOW}处理 chezmoi 配置...${NC}"
 
-    # 确保 chezmoi 数据目录存在
-    local chezmoi_data_dir="$HOME/.local/share/chezmoi"
-    if [[ ! -d "$chezmoi_data_dir" ]]; then
-        echo -e "${CYAN}创建 chezmoi 数据目录: $chezmoi_data_dir${NC}"
-        mkdir -p "$chezmoi_data_dir"
-    fi
-
-    local source_path=""
-    if source_path=$(chezmoi source-path 2>/dev/null); then
-        :
-    else
-        # 通常代表尚未初始化
-        source_path=""
-    fi
-
-    verify_chezmoi_source() {
-        local path
-        path="$(chezmoi source-path 2>/dev/null || true)"
-        if [ -z "$path" ] || ! git -C "$path" rev-parse --is-inside-work-tree &> /dev/null; then
-            echo -e "${RED}chezmoi 源仓库未正确初始化${NC}"
-            echo -e "${YELLOW}请检查 source-path: ${path:-未设置}${NC}"
+    local source_path status
+    source_path=$(chezmoi source-path 2>/dev/null || true)
+    if [ -n "$source_path" ] && git -C "$source_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        status=$(git -C "$source_path" status --porcelain --untracked-files=all) || return 1
+        if [ -n "$status" ]; then
+            echo '源仓库有未提交的修改或未跟踪文件，请先提交或自行暂存后重试。' >&2
             return 1
         fi
-    }
-
-    if [ -n "$source_path" ] && git -C "$source_path" rev-parse --is-inside-work-tree &> /dev/null; then
-        echo -e "${CYAN}已找到 chezmoi 仓库，正在尝试更新...${NC}"
-
-        git -C "$source_path" remote set-url origin "$repo_url"
-        local current_branch
-        current_branch="$(git -C "$source_path" branch --show-current 2>/dev/null || true)"
-        if [ -n "$current_branch" ]; then
-            git -C "$source_path" config "branch.${current_branch}.remote" origin
-            git -C "$source_path" config "branch.${current_branch}.merge" refs/heads/main
+        status=$(chezmoi status --color=false) || return 1
+        if printf '%s\n' "$status" | LC_ALL=C grep -q '^[ADM]'; then
+            echo '受管理的目标文件有本地修改，请先用 chezmoi diff 检查并保留修改后重试。' >&2
+            return 1
         fi
-
-        if chezmoi update --force; then
-            echo -e "${GREEN}chezmoi 更新完成${NC}"
-        else
-            echo -e "${RED}更新失败${NC}"
-            echo -e "${YELLOW}可能是因为本地文件被修改，或 chezmoi 源仓库需要重新初始化配置${NC}"
-
-            # 询问用户是否执行 init
-            read -p "更新失败，是否强制重新初始化？(y/N): " confirm
-
-            if [[ ! $confirm =~ ^[yY]$ ]]; then
-                echo -e "${YELLOW}用户取消，跳过重新初始化${NC}"
-                return
-            fi
-
-            echo -e "${CYAN}执行强制重新初始化...${NC}"
-            if chezmoi init --apply --force --branch main "$repo_url" && verify_chezmoi_source; then
-                echo -e "${GREEN}强制重新初始化完成${NC}"
-            else
-                echo -e "${RED}强制重新初始化失败${NC}"
-                exit 1
-            fi
-        fi
+        # 保留用户的 remote、分支及 upstream；不强制覆盖或自动重新初始化。
+        chezmoi update || return 1
+        echo -e "${GREEN}chezmoi 更新完成${NC}"
     else
-        echo -e "${CYAN}未找到 chezmoi 配置，开始初始化...${NC}"
-
-        if chezmoi init --apply --branch main "$repo_url" && verify_chezmoi_source; then
-            echo -e "${GREEN}chezmoi 初始化完成${NC}"
-        else
-            echo -e "${RED}chezmoi 初始化失败${NC}"
-            exit 1
-        fi
+        chezmoi init --apply --branch main "$repo_url" || return 1
+        echo -e "${GREEN}chezmoi 初始化完成${NC}"
     fi
 }
 
@@ -441,7 +402,7 @@ init_or_update_chezmoi() {
 install_mise_tools() {
     if ! command -v mise &> /dev/null; then
         echo -e "${YELLOW}mise 未安装，无法执行工具安装，跳过${NC}"
-        return
+        return 1
     fi
 
     export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
@@ -452,7 +413,7 @@ install_mise_tools() {
         echo -e "${GREEN}mise 工具安装完成${NC}"
     else
         echo -e "${RED}mise install 失败${NC}"
-        # 不退出，让后续步骤继续执行
+        return 1
     fi
 }
 
@@ -463,33 +424,33 @@ install_mise_tools() {
 install_vscode() {
     if [ "${DOTFILES_SKIP_VSCODE:-}" = "1" ]; then
         echo -e "${YELLOW}已设置 DOTFILES_SKIP_VSCODE=1，跳过 VS Code 安装。${NC}"
-        return
+        return 20
     fi
 
     if [ "$OS" = "wsl" ]; then
         echo -e "${YELLOW}WSL 环境跳过 VS Code GUI 安装。${NC}"
-        return
+        return 20
     fi
 
     if command -v code &> /dev/null; then
         echo -e "${GREEN}VS Code 已安装，跳过安装步骤${NC}"
-        return
+        return 20
     fi
 
     case "$OS" in
         macos)
             if ! command -v brew &> /dev/null; then
                 echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask visual-studio-code${NC}"
-                return
+                return 1
             fi
             echo -e "${CYAN}通过 Homebrew 安装 VS Code (macOS)...${NC}"
-            brew install --cask visual-studio-code || echo -e "${YELLOW}brew 安装 VS Code 失败或已安装${NC}"
+            brew install --cask visual-studio-code
             ;;
         linux)
             if ! command -v apt-get &> /dev/null; then
                 echo -e "${YELLOW}当前 Linux 发行版未检测到 apt-get，跳过 VS Code 自动安装。${NC}"
                 echo -e "${YELLOW}请参考: https://code.visualstudio.com/docs/setup/linux${NC}"
-                return
+                return 20
             fi
 
             echo -e "${CYAN}配置 Microsoft apt 源并安装 VS Code（需要 sudo）...${NC}"
@@ -523,32 +484,32 @@ install_vscode() {
 install_jetbrains_toolbox() {
     if [ "${DOTFILES_SKIP_JETBRAINS_TOOLBOX:-}" = "1" ]; then
         echo -e "${YELLOW}已设置 DOTFILES_SKIP_JETBRAINS_TOOLBOX=1，跳过 JetBrains Toolbox 安装。${NC}"
-        return
+        return 20
     fi
 
     if [ "$OS" = "wsl" ]; then
         echo -e "${YELLOW}WSL 环境跳过 JetBrains Toolbox GUI 安装。${NC}"
-        return
+        return 20
     fi
 
     if command -v jetbrains-toolbox &> /dev/null; then
         echo -e "${GREEN}JetBrains Toolbox 已安装，跳过安装步骤${NC}"
-        return
+        return 20
     fi
 
     case "$OS" in
         macos)
             if ! command -v brew &> /dev/null; then
                 echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask jetbrains-toolbox${NC}"
-                return
+                return 1
             fi
             echo -e "${CYAN}通过 Homebrew 安装 JetBrains Toolbox (macOS)...${NC}"
-            brew install --cask jetbrains-toolbox || echo -e "${YELLOW}brew 安装 JetBrains Toolbox 失败或已安装${NC}"
+            brew install --cask jetbrains-toolbox
             ;;
         linux)
             if ! command -v jq &> /dev/null; then
                 echo -e "${YELLOW}未检测到 jq，无法解析 JetBrains Toolbox 最新版本，跳过。${NC}"
-                return
+                return 1
             fi
 
             local API_URL="https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release"
@@ -563,7 +524,7 @@ install_jetbrains_toolbox() {
             TOOLBOX_URL=$(curl -fsSL --max-time 30 "$API_URL" | jq -r ".TBA[0].downloads.${DOWNLOAD_KEY}.link // empty")
             if [ -z "$TOOLBOX_URL" ]; then
                 echo -e "${YELLOW}无法获取 JetBrains Toolbox 下载地址，请手动安装: https://www.jetbrains.com/toolbox-app/${NC}"
-                return
+                return 1
             fi
 
             local TMP_TAR TMP_DIR INSTALL_DIR TOOLBOX_BIN
@@ -612,39 +573,39 @@ install_jetbrains_toolbox() {
 install_github_desktop() {
     if [ "${DOTFILES_SKIP_GITHUB_DESKTOP:-}" = "1" ]; then
         echo -e "${YELLOW}已设置 DOTFILES_SKIP_GITHUB_DESKTOP=1，跳过 GitHub Desktop 安装。${NC}"
-        return
+        return 20
     fi
 
     if [ "$OS" = "wsl" ]; then
         echo -e "${YELLOW}WSL 环境跳过 GitHub Desktop GUI 安装。${NC}"
-        return
+        return 20
     fi
 
     case "$OS" in
         macos)
             if ! command -v brew &> /dev/null; then
                 echo -e "${YELLOW}无 Homebrew，跳过。可手动: brew install --cask github${NC}"
-                return
+                return 1
             fi
             if brew list --cask github &> /dev/null; then
                 echo -e "${GREEN}GitHub Desktop 已安装，跳过安装步骤${NC}"
-                return
+                return 20
             fi
             echo -e "${CYAN}通过 Homebrew 安装 GitHub Desktop (macOS)...${NC}"
-            brew install --cask github || echo -e "${YELLOW}brew 安装 GitHub Desktop 失败或已安装${NC}"
+            brew install --cask github
             ;;
         linux)
             if command -v github-desktop &> /dev/null; then
                 echo -e "${GREEN}GitHub Desktop 已安装，跳过安装步骤${NC}"
-                return
+                return 20
             fi
             if ! command -v apt-get &> /dev/null || ! command -v dpkg &> /dev/null; then
                 echo -e "${YELLOW}当前 Linux 发行版未检测到 apt/dpkg，跳过 GitHub Desktop 自动安装。${NC}"
-                return
+                return 20
             fi
             if ! command -v jq &> /dev/null; then
                 echo -e "${YELLOW}未检测到 jq，无法解析 GitHub Desktop 最新版本，跳过。${NC}"
-                return
+                return 1
             fi
 
             local GH_DESKTOP_REPO="shiftkey/desktop"
@@ -656,14 +617,14 @@ install_github_desktop() {
                 arm64) ASSET_PATTERN="(arm64|aarch64).*\\.deb$" ;;
                 *)
                     echo -e "${YELLOW}GitHub Desktop 社区构建暂未配置架构 ${ARCH} 的自动安装。${NC}"
-                    return
+                    return 20
                     ;;
             esac
 
             DESKTOP_URL=$(curl -fsSL --max-time 30 "$API_URL" | jq -r ".assets[].browser_download_url | select(test(\"${ASSET_PATTERN}\"; \"i\"))" | head -1)
             if [ -z "$DESKTOP_URL" ]; then
                 echo -e "${YELLOW}无法获取 GitHub Desktop Linux DEB 下载地址，请手动安装: https://github.com/${GH_DESKTOP_REPO}/releases${NC}"
-                return
+                return 1
             fi
 
             local TMP_DEB
@@ -679,7 +640,8 @@ install_github_desktop() {
             if sudo dpkg -i "$TMP_DEB" 2>/dev/null; then
                 echo -e "${GREEN}GitHub Desktop 安装完成${NC}"
             else
-                sudo apt-get install -f -y 2>/dev/null && sudo dpkg -i "$TMP_DEB" && echo -e "${GREEN}GitHub Desktop 安装完成（依赖已修复）${NC}"
+                sudo apt-get install -f -y
+                sudo dpkg -i "$TMP_DEB"
             fi
             rm -f "$TMP_DEB"
 
@@ -694,66 +656,53 @@ install_github_desktop() {
 # ────────────────────────────────────────
 # 主流程
 # ────────────────────────────────────────
-main() {
-    echo -e "${CYAN}========================================${NC}"
-    echo -e "${CYAN}环境配置初始化/更新脚本开始执行${NC}"
-    echo -e "${CYAN}========================================${NC}"
-
-    # 1. 配置 WSL
-    configure_wsl
-
-    # 2. 安装系统基础依赖
-    install_system_packages
-
-    # 3. 安装依赖工具
-    install_chezmoi
-    install_mise
-
-    # 4. 安装 zsh / oh-my-zsh 体验
-    install_zsh_stack
-
-    # 5. 初始化或更新 chezmoi 配置
-    init_or_update_chezmoi "$REPO_URL"
-
-    # 6. 安装 mise 声明的工具
-    install_mise_tools
-
-    # 7. VS Code（可选跳过）
-    install_vscode
-
-    # 8. JetBrains Toolbox（可选跳过）
-    install_jetbrains_toolbox
-
-    # 9. GitHub Desktop（可选跳过）
-    install_github_desktop
-
-    echo -e "${CYAN}========================================${NC}"
-    echo -e "${GREEN}环境配置完成！${NC}"
-    echo -e "${CYAN}========================================${NC}"
-
-    echo -e "\n${CYAN}常用命令参考：${NC}"
-    echo -e "${WHITE}  • 更新配置      : chezmoi update${NC}"
-    echo -e "${WHITE}  • 编辑文件      : chezmoi edit ~/.bashrc${NC}"
-    echo -e "${WHITE}  • 强制应用      : chezmoi apply -v${NC}"
-    echo -e "${WHITE}  • 进入仓库目录  : cd \$(chezmoi source-path)${NC}"
-
-    # 提示重新加载 shell 配置
-    echo -e "\n${YELLOW}提示: 请重新加载 shell 配置或重新打开终端以应用所有更改${NC}"
-    case $OS in
-        "linux")
-            echo -e "${YELLOW}执行: source ~/.bashrc 或 source ~/.zshrc${NC}"
-            ;;
-        "wsl")
-            echo -e "${YELLOW}执行: source ~/.zshrc${NC}"
-            echo -e "${YELLOW}WSL 提示：${NC}"
-            echo -e "${WHITE}  • 将仓库中的 .wslconfig 复制到 Windows 用户目录以启用 mirrored 网络${NC}"
-            echo -e "${WHITE}  • 推荐安装 Windows Terminal 作为 WSL 终端${NC}"
-            ;;
-        "macos")
-            echo -e "${YELLOW}执行: source ~/.zshrc${NC}"
-            ;;
+# Each step runs outside an if/|| condition so Bash errexit remains active inside it.
+STEP_RESULTS=()
+FAILED_STEPS=0
+run_step() {
+    local label=$1 required=$2 code
+    shift 2
+    set +e
+    ( set -e; set -o pipefail; "$@" )
+    code=$?
+    set -e
+    case "$code" in
+        0) STEP_RESULTS+=("成功: $label") ;;
+        20) STEP_RESULTS+=("跳过: $label") ;;
+        *) STEP_RESULTS+=("失败: $label (退出码 $code)"); FAILED_STEPS=$((FAILED_STEPS + 1)) ;;
     esac
+    if [ "$code" -ne 0 ] && [ "$code" -ne 20 ] && [ "$required" = required ]; then
+        print_summary
+        exit 1
+    fi
 }
 
-# 执行主函数
-main
+print_summary() {
+    printf '\n安装结果：\n'
+    printf '  %s\n' "${STEP_RESULTS[@]}"
+    if [ "$FAILED_STEPS" -gt 0 ]; then
+        printf '安装未全部完成；失败步骤请根据上方日志处理后重试。\n'
+    else
+        printf '所有执行的步骤均已成功；跳过项目见上表。\n'
+    fi
+}
+
+main() {
+    run_step 'WSL 配置' required configure_wsl
+    run_step '系统基础依赖' required install_system_packages
+    run_step 'chezmoi' required install_chezmoi
+    run_step 'mise' required install_mise
+    run_step 'zsh 配置' optional install_zsh_stack
+    run_step 'dotfiles 初始化/更新' required init_or_update_chezmoi "$REPO_URL"
+    run_step 'mise 工具链' optional install_mise_tools
+    run_step 'VS Code' optional install_vscode
+    run_step 'JetBrains Toolbox' optional install_jetbrains_toolbox
+    run_step 'GitHub Desktop' optional install_github_desktop
+    print_summary
+    [ "$FAILED_STEPS" -eq 0 ] || return 1
+    printf '\n请重新打开终端加载配置。日常更新：chezmoi update；检查差异：chezmoi diff。\n'
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
