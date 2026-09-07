@@ -12,7 +12,7 @@ cat > "$config/rule-subscriptions.json" <<'JSON'
 {"version":1,"route":{"final":"proxy","auto_detect_interface":true},"dns_rewrite":{"ttl":300,"suppress_local_discovery":true,"local_mappings":[]}}
 JSON
 cat > "$config/rules.d/test.json" <<'JSON'
-{"version":1,"category":"Test","rule_sets":[{"tag":"direct-ip","name":"Direct IP","type":"route-rule","enabled":true,"priority":1,"action":"direct","sources":[],"local_rules":[]}]}
+{"version":1,"category":"Test","allow_domains":["dns.example"],"rule_sets":[{"tag":"direct-ip","name":"Direct IP","type":"route-rule","enabled":true,"priority":1,"action":"direct","sources":[],"local_rules":[]}]}
 JSON
 printf '%s\n' '{}' > "$config/config.d/00-base.json"
 printf '%s\n' '{}' > "$data/generated/30-safe-search.json"
@@ -46,6 +46,7 @@ printf '%s\n' "$output" | grep -Fq '2  Hong Kong A02'
 "$manager" proxy-use 2 >/dev/null
 [ "$(cat "$data/proxy-selection")" = 'Hong Kong A02' ]
 jq -e '.route.final == "Hong Kong A02" and (.route.rules[] | select(.ip_version == 6).outbound) == "Hong Kong A02"' "$data/generated/20-route.json" >/dev/null
+jq -e '.route.rules[0].domain == ["a.example", "b.example"] and (.dns.rules[0].domain | index("dns.example")) != null and .dns.rules[0].strategy == "ipv4_only"' "$data/generated/20-route.json" >/dev/null
 grep -Fq 'launchctl kickstart -k system/com.yangshunxiang.sing-box' "$work/sudo.log"
 "$manager" proxy-list | grep -Fq '*   2  Hong Kong A02'
 

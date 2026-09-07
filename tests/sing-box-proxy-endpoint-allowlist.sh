@@ -15,12 +15,13 @@ jq -e --slurpfile private "$private_config" --argjson policy_allowlist "$policy_
   ($private[0].outbounds
     | map(.server? // empty | select(type == "string" and test("[A-Za-z]")))
     | unique) as $endpoints
-  | (($endpoints + $policy_allowlist) | unique) as $direct_domains
+  | (($endpoints + $policy_allowlist) | unique) as $dns_allowlist
   | ($endpoints | length) > 0
   and ($policy_allowlist | length) > 0
-  and .route.rules[0].domain == $direct_domains
+  and .route.rules[0].domain == $endpoints
   and .route.rules[0].outbound == "direct"
-  and .dns.rules[0].domain == $direct_domains
+  and .dns.rules[0].domain == $dns_allowlist
   and .dns.rules[0].action == "route"
   and .dns.rules[0].server == "dns-direct"
+  and .dns.rules[0].strategy == "ipv4_only"
 ' "$route_config" >/dev/null
