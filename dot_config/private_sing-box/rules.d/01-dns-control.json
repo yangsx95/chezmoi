@@ -1,6 +1,13 @@
 {
   "version": 1,
   "category": "DNS control",
+  "allow_domains": [
+    "dns.wechat.com",
+    "dns.weixin.qq.com",
+    "httpdns.kg.qq.com",
+    "paydns.weixin.qq.com",
+    "udns.weixin.qq.com"
+  ],
   "rule_sets": [
     {
       "tag": "dns-bypass-domains",

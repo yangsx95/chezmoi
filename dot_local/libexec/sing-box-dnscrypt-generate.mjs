@@ -6,8 +6,9 @@ import { execFileSync } from 'node:child_process';
 
 const [definitions, rulesDir, privateConfig, blockOutput, allowOutput] = process.argv.slice(2);
 if (!allowOutput) throw new Error('Usage: generator <definitions-dir> <compiled-rules-dir> <private-config> <block-output> <allow-output>');
-const sets = fs.readdirSync(definitions).filter(name => name.endsWith('.json')).sort()
-  .flatMap(name => JSON.parse(fs.readFileSync(path.join(definitions, name))).rule_sets)
+const documents = fs.readdirSync(definitions).filter(name => name.endsWith('.json')).sort()
+  .map(name => JSON.parse(fs.readFileSync(path.join(definitions, name))));
+const sets = documents.flatMap(document => document.rule_sets)
   .filter(set => set.type === 'route-rule' && set.enabled && set.action === 'block'
     && set.dns_block !== false && set.sources.every(source => source.format !== 'ip-list'));
 const blocked = new Set();
@@ -36,11 +37,12 @@ try {
       for (const value of entries(rule.domain_keyword)) blocked.add(`*${literal(value)}*`);
     }
   }
-  const allowed = new Set(JSON.parse(fs.readFileSync(privateConfig)).outbounds
-    .map(outbound => outbound.server).filter(server => typeof server === 'string' && /[A-Za-z]/.test(server))
+  const policyAllowed = documents.flatMap(document => document.allow_domains ?? []);
+  const allowed = new Set([...policyAllowed, ...JSON.parse(fs.readFileSync(privateConfig)).outbounds
+    .map(outbound => outbound.server).filter(server => typeof server === 'string' && /[A-Za-z]/.test(server))]
     .map(server => `=${literal(server)}`));
   fs.writeFileSync(blockOutput, '# Generated from sing-box DNS blocking rule sets.\n' + [...blocked].sort().join('\n') + '\n');
-  fs.writeFileSync(allowOutput, '# Proxy endpoint exceptions (exact domains).\n' + [...allowed].sort().join('\n') + '\n');
+  fs.writeFileSync(allowOutput, '# Policy and proxy endpoint exceptions (exact domains).\n' + [...allowed].sort().join('\n') + '\n');
   console.log(`dnscrypt-proxy: ${blocked.size} patterns from ${sets.length} rule sets`);
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });

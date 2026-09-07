@@ -128,6 +128,34 @@ macOS 额外使用本机 `dnscrypt-proxy`（`127.0.0.1:53`）；`compile`/`updat
 
 ---
 
+### Android（无 Root，SFA）
+
+复用桌面编译产物，导出两份可以直接导入官方 sing-box for Android 的完整配置：
+
+```bash
+sing-box-managed update          # 需要更新订阅时执行
+sing-box-managed android-export  # 使用当前已编译规则，不下载订阅
+```
+
+输出到 `${XDG_DATA_HOME:-~/.local/share}/sing-box/android/export-*/`，每次创建独立目录：
+
+- `android-proxy.json`：代理＋过滤，包含个人节点凭据。
+- `android-direct.json`：直连＋过滤，不包含节点凭据。
+- `README.txt`：导入、后台运行、版本和验证说明。
+
+两份配置内嵌规则，无需手机访问桌面路径或单独复制 `.srs`；使用 AliDNS DoH，
+不依赖 dnscrypt-proxy。保留 DNS/连接层拦截、节点例外和安全搜索重写；直连模式
+仍需 SFA 运行，境外网站是否可访问取决于直连网络。完整规则较大，导入及启动耗时需手机实测。
+
+安装 [官方 SFA](https://sing-box.sagernet.org/clients/android/)，使用与导出说明中
+校验版本相同的内核，从文件导入配置并允许 VPN。小米 HyperOS 需允许后台运行、
+自启动并取消电池限制（菜单因版本不同）。不要在应用绕过列表排除需要过滤的应用。
+系统私人 DNS 和浏览器安全 DNS 关闭后测试，避免绕过或冲突。
+
+导出是规则快照，不会自动更新；更新后重新导出并导入。代理配置请私下传输，
+不要提交到 Git 或公开发布。导出命令只校验配置，不启动或停止桌面代理，
+也不代表已经通过 Android 真机验证。
+
 ## WSL 特有说明
 
 ### 网络

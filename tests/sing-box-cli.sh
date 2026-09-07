@@ -10,12 +10,14 @@ chmod +x "$test_dir/sudo"
 export CLI_MUTATION="$test_dir/mutated"
 PATH="$test_dir:$PATH"
 export PATH
-for command in start stop restart run logs doctor status; do
+for command in start stop restart run logs doctor status android-export proxy-list proxy-use; do
   "$manager" "$command" --help >/dev/null
   code=0
   "$manager" "$command" --invalid >/dev/null 2>&1 || code=$?
   [ "$code" -eq 2 ]
 done
+[ "$("$manager" proxy-use 2>/dev/null || printf ':%s' "$?")" = ':2' ]
+[ "$("$manager" proxy-use one two 2>/dev/null || printf ':%s' "$?")" = ':2' ]
 [ ! -e "$CLI_MUTATION" ]
 for option in -d --background; do
   code=0

@@ -5,7 +5,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 mkdir -p "$work/definitions" "$work/rules"
 cat > "$work/definitions/test.json" <<'JSON'
-{"rule_sets":[
+{"allow_domains":["dns.weixin.qq.com"],"rule_sets":[
 {"tag":"remote","type":"route-rule","enabled":true,"action":"block","sources":[{"format":"hosts"}]},
 {"tag":"disabled","type":"route-rule","enabled":false,"action":"block","sources":[]},
 {"tag":"route-only","type":"route-rule","enabled":true,"action":"block","dns_block":false,"sources":[]},
@@ -23,6 +23,7 @@ for expected in '=exact.example' 'zone.example' '?*.children.example' '*keyword*
 done
 [ "$(sed '/^#/d;/^$/d' "$work/block" | wc -l | tr -d ' ')" = 4 ]
 grep -Fxq '=proxy.example' "$work/allow"
+grep -Fxq '=dns.weixin.qq.com' "$work/allow"
 ! grep -q '192.0.2' "$work/allow"
 # Unsupported semantics must fail without replacing valid outputs.
 cp "$work/block" "$work/before"

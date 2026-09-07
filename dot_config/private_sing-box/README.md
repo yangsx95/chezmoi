@@ -142,3 +142,17 @@ conditional rules fail conversion rather than silently producing partial coverag
 `dns-sync` reads the current compiled rules; run `compile` after editing definitions.
 IP/port routing blocks, `dns_block: false` sets, and safe-search rewrites remain
 sing-box-only. Conversion is validated before publishing a new compiled release.
+
+### Android export
+
+`sing-box-managed android-export` creates two self-contained SFA JSON profiles
+in `$XDG_DATA_HOME/sing-box/android/export-*` (default `~/.local/share`). It reads
+the currently compiled desktop rules and embeds them as inline rule sets, avoiding
+Android filesystem paths and download hosting. Export after `update` to refresh.
+Both profiles preserve DNS blocks, connection blocks, and safe-search overrides.
+Safe-search overrides precede generic routes, including the IPv6 catch-all.
+`android-proxy.json` includes private nodes; `android-direct.json` contains only
+a direct outbound. AliDNS DoH replaces the desktop loopback DNS service.
+Unsupported desktop outbound fields fail export. Each profile is checked with the
+installed core; use its version on SFA and verify on the phone. Exports are private
+(mode 0600), snapshot-based, and may be large. Never publish the proxy profile.

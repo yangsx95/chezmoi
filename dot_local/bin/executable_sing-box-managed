@@ -19,6 +19,7 @@ browser_security_profile="$config_home/sing-box/browser-security.mobileconfig"
 source_parser="$HOME/.local/libexec/sing-box-rule-source-compile.mjs"
 dnscrypt_blocklist="$config_home/dnscrypt-proxy/blocked-names.txt"
 dnscrypt_allowlist="$config_home/dnscrypt-proxy/allowed-names.txt"
+proxy_selection_file="$data_dir/proxy-selection"
 launchd_label="com.yangshunxiang.sing-box"
 launchd_plist="/Library/LaunchDaemons/$launchd_label.plist"
 
@@ -33,6 +34,7 @@ usage() {
     '  status                     Show proxy, DNS service, and browser profile' \
     '  doctor                     Test DNS, blocking, policies, and connectivity' \
     '  logs [-n LINES] [-f]        Show recent log lines (default: 50); -f follows' \
+    '  proxy-list                 List automatic mode and available proxy nodes' \
     '  check                      Validate generated configuration' '' \
     'Debug' \
     '  run                        Run in foreground; Ctrl+C stops the process' \
@@ -40,6 +42,8 @@ usage() {
     'Rules and browser protection' \
     '  update                     Download and compile rules (alias: compile)' \
     '  dns-sync                   Refresh the independent DNS blocklist' \
+    '  proxy-use <auto|INDEX|NAME> Switch proxy mode or node and reload service' \
+    '  android-export             Export self-contained SFA profiles' \
     '  browser-security           Open browser profile installer' \
     '  browser-security-status    Show profile installation status' '' \
     'Help' \
@@ -47,6 +51,9 @@ usage() {
     'Examples' \
     '  sing-box-managed start' \
     '  sing-box-managed status' \
+    '  sing-box-managed proxy-list' \
+    '  sing-box-managed proxy-use 2' \
+    '  sing-box-managed proxy-use auto' \
     '  sing-box-managed doctor' \
     '  sing-box-managed logs -n 100 -f'
 }
@@ -138,6 +145,54 @@ definition_files() {
   printf '%s\n' "$@"
 }
 
+automatic_proxy_outbound() {
+  require_file "$subscriptions_config"
+  jq -er '.route.final | select(type == "string" and length > 0)' "$subscriptions_config"
+}
+
+proxy_nodes() {
+  require_file "$private_config"
+  automatic=$(automatic_proxy_outbound)
+  jq -er --arg automatic "$automatic" '
+    .outbounds[] | select(.tag == $automatic and (.type == "urltest" or .type == "selector"))
+    | .outbounds[]
+  ' "$private_config"
+}
+
+proxy_node_exists() {
+  candidate=$1
+  proxy_nodes | grep -Fxq "$candidate"
+}
+
+current_proxy_outbound() {
+  automatic=$(automatic_proxy_outbound)
+  if [ -f "$proxy_selection_file" ]; then
+    selected=$(sed -n '1p' "$proxy_selection_file")
+  else
+    selected=$automatic
+  fi
+  if [ "$selected" != "$automatic" ] && ! proxy_node_exists "$selected"; then
+    printf 'Saved proxy node is no longer available: %s\n' "$selected" >&2
+    exit 1
+  fi
+  printf '%s\n' "$selected"
+}
+
+show_proxy_nodes() {
+  automatic=$(automatic_proxy_outbound)
+  selected=$(current_proxy_outbound)
+  if [ "$selected" = "$automatic" ]; then current=auto; else current=$selected; fi
+  printf 'Current: %s\n\n' "$current"
+  if [ "$selected" = "$automatic" ]; then marker='*'; else marker=' '; fi
+  printf '%s %3d  %s\n' "$marker" 0 auto
+  index=0
+  proxy_nodes | while IFS= read -r node; do
+    index=$((index + 1))
+    if [ "$selected" = "$node" ]; then marker='*'; else marker=' '; fi
+    printf '%s %3d  %s\n' "$marker" "$index" "$node"
+  done
+}
+
 validate_definitions() {
   require_file "$subscriptions_config"
   files=$(definition_files)
@@ -154,7 +209,9 @@ validate_definitions() {
   set -- $files
   jq -e -s '
     length > 0
-    and all(.[]; .version == 1 and (.category | type == "string" and length > 0) and (.rule_sets | type == "array" and length > 0))
+    and all(.[]; .version == 1 and (.category | type == "string" and length > 0)
+      and ((.allow_domains // []) | type == "array" and all(.[]; type == "string" and length > 0))
+      and (.rule_sets | type == "array" and length > 0))
     and ([.[] | .rule_sets[] | .tag] | length == (unique | length))
     and all(.[] | .rule_sets[];
       (.tag | type == "string" and test("^[a-z0-9][a-z0-9-]*$"))
@@ -170,15 +227,62 @@ validate_definitions() {
 generate_route() {
   output_path=$1
   rule_path=${2:-"$rules_dir"}
+  selected_outbound=${3:-$(current_proxy_outbound)}
   files=$(definition_files)
   set -- $files
-  jq -s --arg rules "$rule_path" --slurpfile common "$subscriptions_config" --slurpfile private "$private_config" '
+  jq -s --arg rules "$rule_path" --arg selected_outbound "$selected_outbound" --slurpfile common "$subscriptions_config" --slurpfile private "$private_config" '
     def outbound: if .action == "block" then "block" elif .action == "direct" then "direct" else .outbound end;
     def route_rule: if .action == "block" then {rule_set:.tag,action:"reject"} else {rule_set:.tag,outbound:(outbound)} end;
     ([.[] | .rule_sets[] | select(.type == "route-rule" and .enabled) | {tag,priority,action,outbound,sources,dns_block:(if has("dns_block") then .dns_block else true end)}] | sort_by(.priority, .tag)) as $items
+    | ([.[] | (.allow_domains // [])[]] | unique) as $policy_allowlist
     | ($private[0].outbounds | map(.server? // empty | select(type == "string" and test("[A-Za-z]"))) | unique) as $proxy_endpoints
-    | {route:{rules:([{domain:$proxy_endpoints,outbound:"direct"}] + [$items[] | select(.action == "block") | route_rule] + [{ip_version:6,outbound:$common[0].route.final}] + [$items[] | select(.action != "block") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$common[0].route.final,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:([{domain:$proxy_endpoints,action:"route",server:"dns-direct"}] + [$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}])}}
+    | (($proxy_endpoints + $policy_allowlist) | unique) as $direct_domains
+    | {route:{rules:([{domain:$direct_domains,outbound:"direct"}] + [$items[] | select(.action == "block") | route_rule] + [{ip_version:6,outbound:$selected_outbound}] + [$items[] | select(.action != "block") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$selected_outbound,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:([{domain:$direct_domains,action:"route",server:"dns-direct"}] + [$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}])}}
   ' "$@" > "$output_path"
+}
+
+switch_proxy() {
+  requested=$1
+  automatic=$(automatic_proxy_outbound)
+  case "$requested" in
+    auto) selected=$automatic ;;
+    *[!0-9]*) selected=$requested ;;
+    *)
+      [ "$requested" -ge 1 ] 2>/dev/null || argument_error 'proxy index must be 1 or greater'
+      selected=$(proxy_nodes | sed -n "${requested}p")
+      [ -n "$selected" ] || argument_error "proxy index out of range: $requested"
+      ;;
+  esac
+  [ "$selected" = "$automatic" ] || proxy_node_exists "$selected" || argument_error "unknown proxy node: $requested"
+
+  require_command sing-box
+  require_file "$base_config"; require_file "$safe_search_config"
+  mkdir -p "$generated_dir"
+  candidate_route="$generated_dir/.20-route.$$.json"
+  generate_route "$candidate_route" "$rules_dir" "$selected"
+  if ! sing-box check -c "$base_config" -c "$private_config" -c "$candidate_route" -c "$safe_search_config"; then
+    find "$candidate_route" -delete
+    exit 1
+  fi
+  selection_next="$proxy_selection_file.next"
+  umask 077
+  printf '%s\n' "$selected" > "$selection_next"
+  mv -f "$candidate_route" "$route_config"
+  mv -f "$selection_next" "$proxy_selection_file"
+
+  if launchd_loaded; then
+    sudo launchctl kickstart -k "system/$launchd_label"
+    wait_for_start
+    if ! sing_box_running; then
+      launchd_loaded || { printf '%s\n' 'Proxy selection saved, but the launch service stopped.' >&2; exit 1; }
+      printf '%s\n' 'Proxy selection saved; the launch service is waiting for network readiness.'
+    fi
+  elif sing_box_running; then
+    printf '%s\n' 'Proxy selection saved; restart the unmanaged sing-box process to apply it.' >&2
+    exit 1
+  fi
+  if [ "$selected" = "$automatic" ]; then selected_label=auto; else selected_label=$selected; fi
+  printf 'Proxy switched to: %s\n' "$selected_label"
 }
 
 generate_safe_search_input() {
@@ -393,7 +497,7 @@ command_name=${1:-help}
 [ "$#" -eq 0 ] || shift
 case "$command_name" in
   help|-h|--help) [ "$#" -eq 0 ] || argument_error 'help takes no arguments'; usage; exit 0 ;;
-  start|run|stop|restart|status|doctor|logs|check|compile|update|dns-sync|browser-security|browser-security-status) ;;
+  start|run|stop|restart|status|doctor|logs|proxy-list|proxy-use|check|compile|update|dns-sync|android-export|browser-security|browser-security-status) ;;
   *) argument_error "unknown command: $command_name" ;;
 esac
 if [ "$#" -eq 1 ]; then
@@ -401,6 +505,7 @@ if [ "$#" -eq 1 ]; then
 fi
 case "$command_name" in
   logs) show_logs "$@"; exit ;;
+  proxy-use) [ "$#" -eq 1 ] || argument_error 'proxy-use requires exactly one auto, index, or node name' ;;
   run) [ "$#" -eq 0 ] || argument_error 'run takes no arguments; use start for background operation' ;;
   *) [ "$#" -eq 0 ] || argument_error "$command_name takes no arguments" ;;
 esac
@@ -408,6 +513,13 @@ esac
 case "$command_name" in
   compile|update) compile_rules ;;
   dns-sync) generate_dnscrypt_blocklist ;;
+  proxy-list) show_proxy_nodes ;;
+  proxy-use) switch_proxy "$1" ;;
+  android-export)
+    require_command node; require_command sing-box
+    android_exporter="$HOME/.local/libexec/sing-box-android-export.mjs"
+    require_file "$android_exporter"
+    node "$android_exporter" "$config_home" "$data_home" ;;
   check) check_config; result_row PASS Configuration 'valid' ;;
   start) run_sing_box background ;;
   run) run_sing_box ;;
