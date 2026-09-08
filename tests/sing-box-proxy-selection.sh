@@ -18,9 +18,9 @@ printf '%s\n' '{}' > "$config/config.d/00-base.json"
 printf '%s\n' '{}' > "$data/generated/30-safe-search.json"
 cat > "$data/private/10-outbounds.json" <<'JSON'
 {"outbounds":[
-  {"tag":"Hong Kong A01","type":"shadowsocks","server":"a.example"},
-  {"tag":"Hong Kong A02","type":"shadowsocks","server":"b.example"},
-  {"tag":"proxy","type":"urltest","outbounds":["Hong Kong A01","Hong Kong A02"]},
+  {"tag":"Test Node A","type":"shadowsocks","server":"a.example"},
+  {"tag":"Test Node B","type":"shadowsocks","server":"b.example"},
+  {"tag":"proxy","type":"urltest","outbounds":["Test Node A","Test Node B"]},
   {"tag":"direct","type":"direct"},
   {"tag":"block","type":"block"}
 ]}
@@ -40,19 +40,23 @@ manager="$repo/dot_local/bin/executable_sing-box-managed"
 
 output=$("$manager" proxy-list)
 printf '%s\n' "$output" | grep -Fq '*   0  auto'
-printf '%s\n' "$output" | grep -Fq '1  Hong Kong A01'
-printf '%s\n' "$output" | grep -Fq '2  Hong Kong A02'
+printf '%s\n' "$output" | grep -Fq '1  Test Node A'
+printf '%s\n' "$output" | grep -Fq '2  Test Node B'
 
 "$manager" proxy-use 2 >/dev/null
-[ "$(cat "$data/proxy-selection")" = 'Hong Kong A02' ]
-jq -e '.route.final == "Hong Kong A02" and (.route.rules[] | select(.ip_version == 6).outbound) == "Hong Kong A02"' "$data/generated/20-route.json" >/dev/null
+[ "$(cat "$data/proxy-selection")" = 'Test Node B' ]
+jq -e '
+  .route.final == "Test Node B"
+  and (.route.rules[] | select(.ip_version == 6).outbound) == "Test Node B"
+  and ((.route.rules | map(.rule_set == "direct-ip") | index(true)) < (.route.rules | map(.ip_version == 6) | index(true)))
+' "$data/generated/20-route.json" >/dev/null
 jq -e '.route.rules[0].domain == ["a.example", "b.example"] and (.dns.rules[0].domain | index("dns.example")) != null and .dns.rules[0].strategy == "ipv4_only"' "$data/generated/20-route.json" >/dev/null
 grep -Fq 'launchctl kickstart -k system/com.yangshunxiang.sing-box' "$work/sudo.log"
-"$manager" proxy-list | grep -Fq '*   2  Hong Kong A02'
+"$manager" proxy-list | grep -Fq '*   2  Test Node B'
 
-"$manager" proxy-use 'Hong Kong A01' >/dev/null
-[ "$(cat "$data/proxy-selection")" = 'Hong Kong A01' ]
-jq -e '.route.final == "Hong Kong A01"' "$data/generated/20-route.json" >/dev/null
+"$manager" proxy-use 'Test Node A' >/dev/null
+[ "$(cat "$data/proxy-selection")" = 'Test Node A' ]
+jq -e '.route.final == "Test Node A"' "$data/generated/20-route.json" >/dev/null
 
 "$manager" proxy-use auto >/dev/null
 [ "$(cat "$data/proxy-selection")" = proxy ]
