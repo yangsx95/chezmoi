@@ -63,7 +63,7 @@ try {
       log: { level: 'warn' },
       dns: {
         servers: [{ type: 'https', tag: 'dns-direct', server: '223.5.5.5', server_port: 443,
-          path: '/dns-query', tls: { enabled: true, server_name: 'dns.alidns.com' }, detour: 'direct' }],
+          path: '/dns-query', tls: { enabled: true, server_name: 'dns.alidns.com' } }],
         final: 'dns-direct', rules: dnsRules,
       },
       inbounds: [{ type: 'tun', tag: 'tun-in', address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],

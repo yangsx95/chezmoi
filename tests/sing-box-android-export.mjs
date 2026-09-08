@@ -51,6 +51,8 @@ try {
   assert(!JSON.stringify(proxy).includes(root));
   assert(!JSON.stringify(proxy).includes('process_name'));
   assert(!JSON.stringify(proxy).includes('127.0.0.1'));
+  assert.equal(proxy.dns.servers[0].detour, undefined);
+  assert.equal(direct.dns.servers[0].detour, undefined);
   assert.deepEqual(proxy.dns.rules, direct.dns.rules);
   const rules = proxy.route.rules;
   assert(rules.findIndex(rule => rule.rule_set === 'blocked') < rules.findIndex(rule => rule.override_address));
