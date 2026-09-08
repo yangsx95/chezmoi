@@ -11,7 +11,8 @@
 {{ else }}        "type": "local",
         "tag": "dns-direct"
 {{ end }}      }
-    ]
+    ]{{ if eq .chezmoi.os "darwin" }},
+    "strategy": "ipv4_only"{{ end }}
   },
   "route": {
     "rules": [

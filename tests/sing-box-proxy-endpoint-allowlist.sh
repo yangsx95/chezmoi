@@ -23,5 +23,5 @@ jq -e --slurpfile private "$private_config" --argjson policy_allowlist "$policy_
   and .dns.rules[0].domain == $dns_allowlist
   and .dns.rules[0].action == "route"
   and .dns.rules[0].server == "dns-direct"
-  and .dns.rules[0].strategy == "ipv4_only"
+  and (.dns.rules[0] | has("strategy") | not)
 ' "$route_config" >/dev/null
