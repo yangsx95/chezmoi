@@ -48,7 +48,7 @@ printf '%s\n' "$output" | grep -Fq '2  Test Node B'
 jq -e '
   .route.final == "Test Node B"
   and (.route.rules[] | select(.ip_version == 6).outbound) == "Test Node B"
-  and ((.route.rules | map(.rule_set == "direct-ip") | index(true)) < (.route.rules | map(.ip_version == 6) | index(true)))
+  and ((.route.rules | map(.ip_version == 6) | index(true)) < (.route.rules | map(.rule_set == "direct-ip") | index(true)))
 ' "$data/generated/20-route.json" >/dev/null
 jq -e '.route.rules[0].domain == ["a.example", "b.example"] and (.dns.rules[0].domain | index("dns.example")) != null and (.dns.rules[0] | has("strategy") | not)' "$data/generated/20-route.json" >/dev/null
 grep -Fq 'launchctl kickstart -k system/com.yangshunxiang.sing-box' "$work/sudo.log"

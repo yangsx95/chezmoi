@@ -237,7 +237,7 @@ generate_route() {
     | ([.[] | (.allow_domains // [])[]] | unique) as $policy_allowlist
     | ($private[0].outbounds | map(.server? // empty | select(type == "string" and test("[A-Za-z]"))) | unique) as $proxy_endpoints
     | (($proxy_endpoints + $policy_allowlist) | unique) as $dns_allowlist
-    | {route:{rules:([{domain:$proxy_endpoints,outbound:"direct"}] + [$items[] | select(.action == "block") | route_rule] + [$items[] | select(.action == "direct") | route_rule] + [{ip_version:6,outbound:$selected_outbound}] + [$items[] | select(.action != "block" and .action != "direct") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$selected_outbound,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:([{domain:$dns_allowlist,action:"route",server:"dns-direct"}] + [$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}])}}
+    | {route:{rules:([{domain:$proxy_endpoints,outbound:"direct"}] + [$items[] | select(.action == "block") | route_rule] + [{ip_version:6,outbound:$selected_outbound}] + [$items[] | select(.action != "block") | route_rule]),rule_set:[$items[] | {type:"local",tag:.tag,format:"binary",path:($rules + "/" + .tag + ".srs")}],final:$selected_outbound,auto_detect_interface:($common[0].route.auto_detect_interface // true)},dns:{rules:([{domain:$dns_allowlist,action:"route",server:"dns-direct"}] + [$items[] | select(.action == "block" and .dns_block and all(.sources[]; .format != "ip-list")) | {rule_set:.tag,action:"reject"}])}}
   ' "$@" > "$output_path"
 }
 
