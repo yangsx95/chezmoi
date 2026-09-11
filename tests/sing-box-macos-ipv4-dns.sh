@@ -10,6 +10,8 @@ chezmoi execute-template < "$repo/dot_config/private_sing-box/config.d/00-base.j
 jq -e '
   .dns.strategy == "ipv4_only"
   and (.dns.rules // []) == []
+  and ([.inbounds[] | select(.type == "tun") | .address] == [["198.18.0.1/30"]])
+  and ([.route.rules[] | select(.process_name == "WeChat")] == [])
 ' "$rendered" >/dev/null
 
 printf '%s\n' 'macOS IPv4-only DNS test passed.'
