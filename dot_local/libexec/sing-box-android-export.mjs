@@ -67,7 +67,7 @@ try {
         final: 'dns-direct', rules: dnsRules,
       },
       inbounds: [{ type: 'tun', tag: 'tun-in', address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
-        mtu: 1500, auto_route: true, stack: 'mixed' }],
+        mtu: 1500, auto_route: true }],
       outbounds: direct ? [{ type: 'direct', tag: 'direct' }] : privateConfig.outbounds,
       route: {
         auto_detect_interface: true,

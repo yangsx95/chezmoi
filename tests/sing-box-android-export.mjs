@@ -54,6 +54,8 @@ try {
   assert.equal(proxy.dns.servers[0].detour, undefined);
   assert.equal(direct.dns.servers[0].detour, undefined);
   assert.deepEqual(proxy.dns.rules, direct.dns.rules);
+  assert.equal(proxy.inbounds[0].stack, undefined);
+  assert.equal(direct.inbounds[0].stack, undefined);
   const rules = proxy.route.rules;
   assert(rules.findIndex(rule => rule.rule_set === 'blocked') < rules.findIndex(rule => rule.override_address));
   assert(rules.findIndex(rule => rule.override_address) < rules.findIndex(rule => rule.ip_version === 6));
