@@ -34,6 +34,10 @@ desktop.ini
 .config/mise/config.toml
 {{- else }}
 # 非 Windows（Linux / WSL / macOS）：不部署 Windows 专用
+.local/bin/sing-box-managed.cmd
+.local/libexec/sing-box-windows-managed.ps1
+.local/libexec/sing-box-windows-prepare.mjs
+.local/libexec/sing-box-windows-proxy.mjs
 Documents/PowerShell/Microsoft.PowerShell_profile.ps1
 Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1
 .wslconfig

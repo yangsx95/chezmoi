@@ -1,5 +1,33 @@
 # sing-box personal configuration
 
+## Windows managed commands
+
+On Windows, `sing-box-managed.cmd` invokes the PowerShell manager. It requires
+Node.js, the winget sing-box installation and a validated local
+`~/.local/share/sing-box/windows-config.json` with private outbounds and compiled
+rules. That generated file and node credentials are not committed.
+
+Use an Administrator PowerShell for `start`, `stop`, `restart` or `run`.
+`start` runs in the background; `status`, `check` and `logs` inspect it.
+This does not install an autostart service. Add `~/.local/bin` to the user PATH.
+
+`proxy-list` and `proxy-use <auto|INDEX|NAME>` use the same `proxy-selection`
+file and one-based node indexes as the Unix manager. Selection updates the
+default route, IPv6 route, safe-search destinations and proxy DNS together,
+after core validation. Restart an existing instance to apply the selection.
+`auto` uses the private configuration's original `proxy` group. Node groups
+and credentials remain local. Startup records proxy and system/TUN probe
+errors in `health-check.log` and stops its instance if either probe fails.
+
+Before starting, the manager chooses an active physical default-route adapter
+and validates a candidate configuration before publishing it. Proxy endpoint
+DNS stays on the bootstrap resolver; other permitted DNS queries use DoH through
+the proxy. This avoids relying on another VPN's default adapter or using local
+DNS answers for all foreign destinations. Existing content blocks stay enabled.
+An active iKuuuVPN default route prevents background TUN startup; the manager
+never stops or uninstalls that VPN. Non-TUN proxy tests do not validate Windows
+TUN routing or firewall behavior.
+
 This directory is managed by chezmoi. It contains only public configuration and
 small personal rule sources.
 
