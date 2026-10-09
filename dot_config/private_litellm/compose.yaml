@@ -16,8 +16,8 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Add DeepSeek credentials or configure CC Switch}
       COMPANY_API_KEY: ${COMPANY_API_KEY:?Add company credentials or configure CC Switch}
       COMPANY_API_BASE: ${COMPANY_API_BASE:?Add company endpoint or configure CC Switch}
-      UI_USERNAME: ${UI_USERNAME:-admin}
-      UI_PASSWORD: ${UI_PASSWORD:?Run litellm-local init to create a UI password}
+      UI_USERNAME: admin
+      UI_PASSWORD: admin
     depends_on:
       postgres:
         condition: service_healthy

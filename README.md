@@ -99,22 +99,18 @@ chezmoi update
 
 ### 本机 LiteLLM 网关
 
-`~/.config/litellm/` 保存可同步的 Compose 和基础模型配置；Docker、Python 3 与
-`~/.local/share/litellm/.env` 是运行前提。`.env` 以 age 加密形式保存在仓库中；
-新电脑先通过安全渠道将 `~/.config/chezmoi/litellm-age-key.txt` 复制到相同路径，
-并设置权限 `chmod 600 ~/.config/chezmoi/litellm-age-key.txt`，再从本仓库目录部署：
+`~/.config/litellm/` 保存可同步的 Compose 和基础模型配置；Docker、Python 3 是运行前提。
+首次部署（从本仓库目录执行）：
 
 ```bash
-chezmoi --source "$PWD" apply ~/.config/litellm ~/.local/bin/litellm-local ~/.local/share/litellm/.env
+chezmoi --source "$PWD" apply ~/.config/litellm ~/.local/bin/litellm-local
 litellm-local init
 litellm-local up -d
 ```
 
-`init` 在缺少 `.env` 时生成管理员密钥、加密盐值、PostgreSQL 密码及 UI 密码；
-已有 `.env` 只补充缺失的 UI 密码，不会覆盖现有密钥。UI 用户名默认为 `admin`，
-密码保存在 `~/.local/share/litellm/.env` 的 `UI_PASSWORD` 中。修改本机 `.env` 后，
-使用 `chezmoi --source "$PWD" re-add ~/.local/share/litellm/.env` 更新仓库里的加密版本。
-解密密钥不进入仓库；务必单独备份，丢失后无法在新设备恢复这些凭据。
+`init` 在本机 `~/.local/share/litellm/.env` 缺失时生成管理员密钥、加密盐值及
+PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用户名和密码，
+本地登录使用 `admin/admin`，网关仅监听本机回环地址。`.env` 不同步到仓库。
 上游凭据优先使用本机环境变量或 `.env`，否则读取 CC Switch 的 Codex 提供商
 `DeepSeek` 和 `公司专用`。新电脑没有这些提供商时，在私有 `.env` 中另行添加
 `DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`。公司内网地址须在新电脑可达。
@@ -126,14 +122,14 @@ litellm-local up -d
 
 网关仅监听 `127.0.0.1:4000`，管理界面在 `http://127.0.0.1:4000/ui/`。
 `litellm-local ps`、`litellm-local logs proxy` 和 `litellm-local down` 管理容器。
-管理界面中新增的模型以及 Token 历史不会随 Git 同步：它们保存在本机 Docker 卷中。
-迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份：
+密钥、管理界面中新增的模型以及 Token 历史不会随 Git 同步：后两者保存在本机
+Docker 卷中。迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份与原 `.env`：
 
 ```bash
 (umask 077; litellm-local exec -T postgres pg_dump -U litellm -d litellm -Fc > "$HOME/litellm.dump")
 ```
 
-新电脑先通过 chezmoi 恢复 `.env`、运行 `litellm-local up -d postgres`，再执行以下恢复命令，
+新电脑先放置原 `.env`、运行 `litellm-local up -d postgres`，再执行以下恢复命令，
 最后运行 `litellm-local up -d`。备份可能含使用日志及密钥，不要放入本仓库。
 
 ```bash

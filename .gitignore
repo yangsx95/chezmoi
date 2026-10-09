@@ -11,4 +11,5 @@ dot_local/share/sing-box/rules-src/
 
 # LiteLLM plaintext credentials and database backups stay outside the source tree.
 dot_config/private_litellm/.env
+dot_local/share/litellm/
 __pycache__/

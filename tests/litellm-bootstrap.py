@@ -75,19 +75,6 @@ class LiteLLMBootstrapTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("DEEPSEEK_API_KEY", result.stderr)
 
-    def test_init_adds_ui_password_to_existing_env_once(self):
-        with tempfile.TemporaryDirectory() as temporary_home:
-            env_file = Path(temporary_home) / ".local/share/litellm/.env"
-            env_file.parent.mkdir(parents=True)
-            env_file.write_text("LITELLM_MASTER_KEY=existing-master\n")
-            environment = dict(os.environ, HOME=temporary_home)
-            for _ in range(2):
-                subprocess.run(["python3", str(SCRIPT), "init"], env=environment, check=True, capture_output=True)
-            lines = env_file.read_text().splitlines()
-            self.assertEqual(lines[0], "LITELLM_MASTER_KEY=existing-master")
-            self.assertEqual(len([line for line in lines if line.startswith("UI_PASSWORD=")]), 1)
-            self.assertEqual(stat.S_IMODE(env_file.stat().st_mode), 0o600)
-
 
 if __name__ == "__main__":
     unittest.main()

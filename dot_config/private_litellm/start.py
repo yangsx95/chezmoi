@@ -22,12 +22,6 @@ proxy_url = "http://127.0.0.1:4000"
 def initialize():
     data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     if env_file.exists():
-        existing = env_file.read_text()
-        if not any(line.startswith("UI_PASSWORD=") and line.partition("=")[2] for line in existing.splitlines()):
-            with env_file.open("a") as output:
-                output.write(f"UI_PASSWORD={secrets.token_urlsafe(32)}\n")
-            os.chmod(env_file, 0o600)
-            print(f"Added UI password to {env_file}")
         print(f"Using existing {env_file}")
         return
     descriptor = os.open(env_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -35,7 +29,6 @@ def initialize():
         output.write(f"LITELLM_MASTER_KEY=sk-{secrets.token_hex(32)}\n")
         output.write(f"LITELLM_SALT_KEY=sk-{secrets.token_hex(32)}\n")
         output.write(f"POSTGRES_PASSWORD={secrets.token_hex(32)}\n")
-        output.write(f"UI_PASSWORD={secrets.token_urlsafe(32)}\n")
     print(f"Created {env_file}; add provider credentials or configure CC Switch")
 
 
