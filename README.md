@@ -130,14 +130,17 @@ litellm-local restart
 `chatgpt-gpt-6.1-sol` 使用订阅登录通道，不需要 OpenAI Platform API Key；
 本机已验证 `/v1/responses` 和 `/v1/chat/completions` 均可调用，UI Playground 可选此模型。
 ChatGPT Plus 的可用模型和额度以实际授权后的请求结果为准。
-启动时会读取公司 `/v1/models` 并将文本模型同步到 LiteLLM 数据库，别名以 `company-` 开头；
-`restart` 重新创建代理并刷新公司模型。图片模型和 `codex-auto-review` 不会自动加入；
-上游已移除的模型默认保留。
+模型别名、提供商路由和服务设置统一写在 `~/.config/litellm/config.yaml` 与
+`~/.config/litellm/compose.yaml`。其中列出当前使用的 10 个公司文本模型，别名以
+`company-` 开头；上游模型变化后，修改仓库中的 `dot_config/private_litellm/config.yaml`，
+执行 `chezmoi --source "$PWD" apply ~/.config/litellm/config.yaml` 和 `litellm-local restart`。
+配置设为 `store_model_in_db: false`，管理 UI 中临时新增的数据库模型不会加载。
 
 网关仅监听 `127.0.0.1:4000`，管理界面在 `http://127.0.0.1:4000/ui/`。
 `litellm-local start`、`restart`、`stop` 管理服务；`ps` 和 `logs proxy` 查看状态与日志。
-密钥、管理界面中新增的模型以及 Token 历史不会随 Git 同步：后两者保存在本机
-Docker 卷中。迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份与原 `.env`：
+模型配置随 Git 同步；密钥、ChatGPT 授权文件和 Token 历史不会同步，保存在本机。
+此前在管理界面创建的数据库模型记录仍保留在本机数据库中，但不会加载。
+迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份与原 `.env`：
 
 ```bash
 (umask 077; litellm-local exec -T postgres pg_dump -U litellm -d litellm -Fc > "$HOME/litellm.dump")

@@ -8,6 +8,57 @@ model_list:
       mode: responses
     litellm_params:
       model: chatgpt/gpt-6.1-sol
+  - model_name: company-deepseek-flash
+    litellm_params:
+      model: openai/deepseek-flash
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-deepseek-v4-pro
+    litellm_params:
+      model: openai/deepseek-v4-pro
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-5.6-luna
+    litellm_params:
+      model: openai/gpt-5.6-luna
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-5.6-sol
+    litellm_params:
+      model: openai/gpt-5.6-sol
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-5.6-terra
+    litellm_params:
+      model: openai/gpt-5.6-terra
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-6-astra
+    litellm_params:
+      model: openai/gpt-6-astra
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-6-luna
+    litellm_params:
+      model: openai/gpt-6-luna
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-6-sol
+    litellm_params:
+      model: openai/gpt-6-sol
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-6.1-sol
+    litellm_params:
+      model: openai/gpt-6.1-sol
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
+  - model_name: company-gpt-reserve
+    litellm_params:
+      model: openai/gpt-reserve
+      api_base: os.environ/COMPANY_API_BASE
+      api_key: os.environ/COMPANY_API_KEY
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  store_model_in_db: false

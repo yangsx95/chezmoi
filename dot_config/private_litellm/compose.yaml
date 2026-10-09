@@ -13,7 +13,6 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Missing local master key}
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?Missing salt key}
       DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD:?Missing database password}@postgres:5432/litellm
-      STORE_MODEL_IN_DB: "True"
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Add DeepSeek credentials or configure CC Switch}
       COMPANY_API_KEY: ${COMPANY_API_KEY:?Add company credentials or configure CC Switch}
       COMPANY_API_BASE: ${COMPANY_API_BASE:?Add company endpoint or configure CC Switch}

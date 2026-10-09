@@ -1,13 +1,11 @@
 import json
 import os
-import re
 import secrets
 import sqlite3
 import subprocess
 import sys
 import time
 import tomllib
-import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -75,79 +73,6 @@ def compose_command(arguments):
     ]
 
 
-def request_json(url, token, payload=None):
-    headers = {"Authorization": f"Bearer {token}"}
-    if payload is not None:
-        headers["Content-Type"] = "application/json"
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode() if payload is not None else None,
-        headers=headers,
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(f"Model API returned HTTP {error.code}: {url}") from error
-
-
-def company_model_id(model_id):
-    return (
-        isinstance(model_id, str)
-        and re.fullmatch(r"[A-Za-z0-9._-]+", model_id) is not None
-        and model_id != "codex-auto-review"
-        and not model_id.startswith("gpt-image-")
-    )
-
-
-def sync_company_models(environment):
-    compose_config = subprocess.run(
-        compose_command(["config", "--format", "json"]),
-        env=environment, check=True, capture_output=True, text=True,
-    )
-    credentials = json.loads(compose_config.stdout)["services"]["proxy"]["environment"]
-    company_url = credentials["COMPANY_API_BASE"].rstrip("/") + "/models"
-    upstream = request_json(company_url, credentials["COMPANY_API_KEY"])
-    models = upstream.get("data")
-    if not isinstance(models, list):
-        raise RuntimeError("Company model endpoint did not return a model list")
-    model_ids = sorted({item.get("id") for item in models if company_model_id(item.get("id"))})
-    if not model_ids:
-        raise RuntimeError("Company model list is empty; existing models were kept")
-
-    master_key = credentials["LITELLM_MASTER_KEY"]
-    deployments = request_json(proxy_url + "/model/info", master_key)["data"]
-    names = {deployment["model_name"] for deployment in deployments}
-    managed = {
-        deployment["model_info"]["id"]: deployment
-        for deployment in deployments
-        if deployment["model_info"].get("db_model")
-        and deployment["model_info"]["id"].startswith("company-sync-")
-        and deployment["model_name"].startswith("company-")
-    }
-    added = 0
-    for model_id in model_ids:
-        name = f"company-{model_id}"
-        deployment_id = f"company-sync-{model_id}"
-        if deployment_id in managed or name in names:
-            continue
-        request_json(
-            proxy_url + "/model/new", master_key,
-            {
-                "model_name": name,
-                "litellm_params": {
-                    "model": f"openai/{model_id}",
-                    "api_base": "os.environ/COMPANY_API_BASE",
-                    "api_key": "os.environ/COMPANY_API_KEY",
-                },
-                "model_info": {"id": deployment_id},
-            },
-        )
-        added += 1
-
-    print(f"Company models: {len(model_ids)} available, {added} added")
-
-
 def wait_for_proxy():
     for _ in range(45):
         try:
@@ -171,10 +96,6 @@ if __name__ == "__main__":
             compose_args.extend(["--force-recreate", "proxy"])
         subprocess.run(compose_command(compose_args), env=environment, check=True)
         wait_for_proxy()
-        try:
-            sync_company_models(environment)
-        except (OSError, KeyError, ValueError, RuntimeError) as error:
-            print(f"Model sync failed; proxy remains running: {error}", file=sys.stderr)
     elif arguments and arguments[0] in {"stop", "ps", "logs", "exec"}:
         if not env_file.is_file():
             raise SystemExit("Run litellm-local start first")
