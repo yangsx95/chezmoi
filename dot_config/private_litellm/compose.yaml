@@ -8,6 +8,7 @@ services:
       - "127.0.0.1:4000:4000"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ${HOME}/.local/share/litellm/chatgpt:/tokens/chatgpt
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Missing local master key}
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?Missing salt key}
@@ -18,6 +19,7 @@ services:
       COMPANY_API_BASE: ${COMPANY_API_BASE:?Add company endpoint or configure CC Switch}
       UI_USERNAME: admin
       UI_PASSWORD: admin
+      CHATGPT_TOKEN_DIR: /tokens/chatgpt
     depends_on:
       postgres:
         condition: service_healthy

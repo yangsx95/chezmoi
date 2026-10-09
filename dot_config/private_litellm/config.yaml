@@ -3,6 +3,11 @@ model_list:
     litellm_params:
       model: deepseek/deepseek-flash
       api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: chatgpt-gpt-6.1-sol
+    model_info:
+      mode: responses
+    litellm_params:
+      model: chatgpt/gpt-6.1-sol
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

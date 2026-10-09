@@ -113,7 +113,23 @@ PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用�
 上游凭据优先使用本机环境变量或 `.env`，否则读取 CC Switch 的 Codex 提供商
 `DeepSeek` 和 `公司专用`。新电脑没有这些提供商时，在私有 `.env` 中另行添加
 `DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`。公司内网地址须在新电脑可达。
-现有 OpenAI 官方配置使用 ChatGPT 登录，不是 API Key，因此未导入网关。
+现有 OpenAI 官方配置使用 ChatGPT 登录，不是 OpenAI Platform API Key；订阅通道单独授权。
+要用 ChatGPT 订阅额度，可在本机先完成一次设备授权（需本人打开提示的 URL 并输入代码）：
+
+```bash
+mkdir -p "$HOME/.local/share/litellm/chatgpt"
+docker run --rm -it --entrypoint python \
+  -e CHATGPT_TOKEN_DIR=/tokens/chatgpt \
+  -v "$HOME/.local/share/litellm/chatgpt:/tokens/chatgpt" \
+  ghcr.io/berriai/litellm:v1.104.2 \
+  -c 'from litellm.llms.chatgpt.authenticator import Authenticator; Authenticator().get_access_token()'
+litellm-local restart
+```
+
+授权文件只保存在本机 `~/.local/share/litellm/chatgpt/`，不进入 Git。代理从该目录读取并刷新令牌；
+`chatgpt-gpt-6.1-sol` 使用订阅登录通道，不需要 OpenAI Platform API Key；
+本机已验证 `/v1/responses` 和 `/v1/chat/completions` 均可调用，UI Playground 可选此模型。
+ChatGPT Plus 的可用模型和额度以实际授权后的请求结果为准。
 启动时会读取公司 `/v1/models` 并将文本模型同步到 LiteLLM 数据库，别名以 `company-` 开头；
 `restart` 重新创建代理并刷新公司模型。图片模型和 `codex-auto-review` 不会自动加入；
 上游已移除的模型默认保留。
