@@ -1,0 +1,47 @@
+name: litellm-local
+
+services:
+  proxy:
+    image: ghcr.io/berriai/litellm:v1.104.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Missing local master key}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?Missing salt key}
+      DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD:?Missing database password}@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Add DeepSeek credentials or configure CC Switch}
+      COMPANY_API_KEY: ${COMPANY_API_KEY:?Add company credentials or configure CC Switch}
+      COMPANY_API_BASE: ${COMPANY_API_BASE:?Add company endpoint or configure CC Switch}
+      UI_USERNAME: ${UI_USERNAME:-admin}
+      UI_PASSWORD: ${UI_PASSWORD:?Run litellm-local init to create a UI password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Missing database password}
+      POSTGRES_DB: litellm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres_data:

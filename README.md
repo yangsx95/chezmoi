@@ -97,6 +97,49 @@ chezmoi update
 | `.docker/daemon.json` | Docker 镜像加速器（中国镜像） |
 | `.config/gh/config.yml` | GitHub CLI 配置（SSH 协议） |
 
+### 本机 LiteLLM 网关
+
+`~/.config/litellm/` 保存可同步的 Compose 和基础模型配置；Docker、Python 3 与
+`~/.local/share/litellm/.env` 是运行前提。`.env` 以 age 加密形式保存在仓库中；
+新电脑先通过安全渠道将 `~/.config/chezmoi/litellm-age-key.txt` 复制到相同路径，
+并设置权限 `chmod 600 ~/.config/chezmoi/litellm-age-key.txt`，再从本仓库目录部署：
+
+```bash
+chezmoi --source "$PWD" apply ~/.config/litellm ~/.local/bin/litellm-local ~/.local/share/litellm/.env
+litellm-local init
+litellm-local up -d
+```
+
+`init` 在缺少 `.env` 时生成管理员密钥、加密盐值、PostgreSQL 密码及 UI 密码；
+已有 `.env` 只补充缺失的 UI 密码，不会覆盖现有密钥。UI 用户名默认为 `admin`，
+密码保存在 `~/.local/share/litellm/.env` 的 `UI_PASSWORD` 中。修改本机 `.env` 后，
+使用 `chezmoi --source "$PWD" re-add ~/.local/share/litellm/.env` 更新仓库里的加密版本。
+解密密钥不进入仓库；务必单独备份，丢失后无法在新设备恢复这些凭据。
+上游凭据优先使用本机环境变量或 `.env`，否则读取 CC Switch 的 Codex 提供商
+`DeepSeek` 和 `公司专用`。新电脑没有这些提供商时，在私有 `.env` 中另行添加
+`DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`。公司内网地址须在新电脑可达。
+现有 OpenAI 官方配置使用 ChatGPT 登录，不是 API Key，因此未导入网关。
+启动时会读取公司 `/v1/models` 并将文本模型同步到 LiteLLM 数据库，别名以 `company-` 开头；
+运行中可用 `litellm-local sync-company-models` 刷新，无需重启或修改 YAML。
+图片模型和 `codex-auto-review` 不会自动加入；上游已移除的模型默认保留，
+确认后才运行 `litellm-local sync-company-models --prune` 删除同步管理的过时条目。
+
+网关仅监听 `127.0.0.1:4000`，管理界面在 `http://127.0.0.1:4000/ui/`。
+`litellm-local ps`、`litellm-local logs proxy` 和 `litellm-local down` 管理容器。
+管理界面中新增的模型以及 Token 历史不会随 Git 同步：它们保存在本机 Docker 卷中。
+迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份：
+
+```bash
+(umask 077; litellm-local exec -T postgres pg_dump -U litellm -d litellm -Fc > "$HOME/litellm.dump")
+```
+
+新电脑先通过 chezmoi 恢复 `.env`、运行 `litellm-local up -d postgres`，再执行以下恢复命令，
+最后运行 `litellm-local up -d`。备份可能含使用日志及密钥，不要放入本仓库。
+
+```bash
+litellm-local exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges -U litellm -d litellm < "$HOME/litellm.dump"
+```
+
 ### sing-box
 
 仓库管理 sing-box 的基础配置、路由顺序和小型个人黑白名单。节点凭据、
