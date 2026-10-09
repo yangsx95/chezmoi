@@ -133,9 +133,14 @@ litellm-local restart
 `chatgpt-gpt-6.1-sol` 使用订阅登录通道，不需要 OpenAI Platform API Key；
 本机已验证 `/v1/responses` 和 `/v1/chat/completions` 均可调用，UI Playground 可选此模型。
 ChatGPT Plus 的可用模型和额度以实际授权后的请求结果为准。
-`config.yaml` 只保留服务设置，并启用 `store_model_in_db: true`。在管理 UI 的
+`config.yaml` 只保留服务设置，启用 `store_model_in_db: true` 和上游模型发现。
+公司凭据关联数据库通配路由 `company/*` → `openai/*`，可用 `company/<上游模型ID>`
+调用公司接口；LiteLLM 从公司 `/models` 展开该路由。该接口包含图片模型和
+`codex-auto-review`，这些条目不保证可通过 Chat Completions 调用。
+上游模型发现是全局设置，也会在模型列表中展示 DeepSeek、ChatGPT 的部分内置目录；
+目录条目并不代表当前账号或数据库已验证可用。在管理 UI 的
 **LLM Credentials** 中管理上游凭据，在 **Models + Endpoints** 中增删模型并选择凭据；
-新增的公司模型也需要在这里加入，LiteLLM 不会自动同步公司 `/models` 清单。
+需要固定别名、单独模式或额外元数据的模型仍可在这里逐个配置。
 
 网关仅监听 `127.0.0.1:4000`，管理界面在 `http://127.0.0.1:4000/ui/`。
 `litellm-local start`、`restart`、`stop` 管理服务；`ps` 和 `logs proxy` 查看状态与日志。
