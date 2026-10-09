@@ -112,7 +112,9 @@ PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用�
 本地登录使用 `admin/admin`，网关仅监听本机回环地址。`.env` 不同步到仓库。
 模型与上游凭据由 LiteLLM 数据库和管理 UI 维护。本机凭据 `DeepSeek官方` 连接
 DeepSeek 官方 API；`公司专用` 连接公司聚合服务，其提供商类型为 `openai`，表示使用
-OpenAI 兼容接口，实际模型可来自 DeepSeek 等上游。公司内网地址须在新电脑可达。
+OpenAI 兼容接口，实际模型可来自 DeepSeek 等上游。`ChatGPT官方` 关联 ChatGPT 订阅模型，
+其数据库凭据不保存 OAuth 令牌；令牌仍由本机 `CHATGPT_TOKEN_DIR` 提供。
+公司内网地址须在新电脑可达。
 LiteLLM 不再读取 CC Switch；chezmoi 也不再管理 `~/.cc-switch/`，已有本机文件不会自动删除。
 现有 OpenAI 官方配置使用 ChatGPT 登录，不是 OpenAI Platform API Key；订阅通道单独授权。
 要用 ChatGPT 订阅额度，可在本机先完成一次设备授权（需本人打开提示的 URL 并输入代码）：
