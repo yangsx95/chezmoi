@@ -1,11 +1,9 @@
 import json
 import os
 import secrets
-import sqlite3
 import subprocess
 import sys
 import time
-import tomllib
 import urllib.request
 from pathlib import Path
 
@@ -27,42 +25,19 @@ def initialize():
         output.write(f"LITELLM_MASTER_KEY=sk-{secrets.token_hex(32)}\n")
         output.write(f"LITELLM_SALT_KEY=sk-{secrets.token_hex(32)}\n")
         output.write(f"POSTGRES_PASSWORD={secrets.token_hex(32)}\n")
-    print(f"Created {env_file}; add provider credentials or configure CC Switch")
+    print(f"Created {env_file}; add provider credentials")
 
 
 def provider_environment():
-    configured = set(os.environ)
+    configured = {key for key in required_keys if os.environ.get(key)}
     for line in env_file.read_text().splitlines():
         key, separator, value = line.partition("=")
         if separator and value.strip():
             configured.add(key.strip())
     missing = required_keys - configured
-    if not missing:
-        return {}
-
-    db_path = Path.home() / ".cc-switch/cc-switch.db"
-    if not db_path.exists():
+    if missing:
         raise SystemExit(f"Add {', '.join(sorted(missing))} to {env_file}")
-    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as db:
-        providers = {
-            name: json.loads(settings)
-            for name, settings in db.execute(
-                "SELECT name, settings_config FROM providers WHERE app_type = ?",
-                ("codex",),
-            )
-        }
-    try:
-        company = providers["公司专用"]
-        candidates = {
-            "DEEPSEEK_API_KEY": providers["DeepSeek"]["auth"]["OPENAI_API_KEY"],
-            "COMPANY_API_KEY": company["auth"]["OPENAI_API_KEY"],
-            "COMPANY_API_BASE": tomllib.loads(company["config"])["model_providers"]["custom"]["base_url"],
-        }
-    except KeyError as error:
-        raise SystemExit(f"CC Switch is missing {error}; add credentials to {env_file}") from error
-    if any(not candidates[key] for key in missing):
-        raise SystemExit(f"Add {', '.join(sorted(missing))} to {env_file}")
-    return {key: candidates[key] for key in missing}
+    return {}
 
 
 def compose_command(arguments):

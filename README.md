@@ -110,9 +110,9 @@ litellm-local start
 `start` 在本机 `~/.local/share/litellm/.env` 缺失时生成管理员密钥、加密盐值及
 PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用户名和密码，
 本地登录使用 `admin/admin`，网关仅监听本机回环地址。`.env` 不同步到仓库。
-上游凭据优先使用本机环境变量或 `.env`，否则读取 CC Switch 的 Codex 提供商
-`DeepSeek` 和 `公司专用`。新电脑没有这些提供商时，在私有 `.env` 中另行添加
-`DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`。公司内网地址须在新电脑可达。
+上游凭据由本机环境变量或私有 `.env` 提供。在新电脑的 `.env` 中填写
+`DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`；公司内网地址须在新电脑可达。
+LiteLLM 不再读取 CC Switch；chezmoi 也不再管理 `~/.cc-switch/`，已有本机文件不会自动删除。
 现有 OpenAI 官方配置使用 ChatGPT 登录，不是 OpenAI Platform API Key；订阅通道单独授权。
 要用 ChatGPT 订阅额度，可在本机先完成一次设备授权（需本人打开提示的 URL 并输入代码）：
 
