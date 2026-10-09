@@ -100,7 +100,7 @@ def company_model_id(model_id):
     )
 
 
-def sync_company_models(environment, prune=False):
+def sync_company_models(environment):
     compose_config = subprocess.run(
         compose_command(["config", "--format", "json"]),
         env=environment, check=True, capture_output=True, text=True,
@@ -125,7 +125,6 @@ def sync_company_models(environment, prune=False):
         and deployment["model_info"]["id"].startswith("company-sync-")
         and deployment["model_name"].startswith("company-")
     }
-    desired = {f"company-sync-{model_id}" for model_id in model_ids}
     added = 0
     for model_id in model_ids:
         name = f"company-{model_id}"
@@ -146,13 +145,7 @@ def sync_company_models(environment, prune=False):
         )
         added += 1
 
-    stale = sorted(managed.keys() - desired)
-    if prune:
-        for deployment_id in stale:
-            request_json(proxy_url + "/model/delete", master_key, {"id": deployment_id})
-    print(f"Company models: {len(model_ids)} available, {added} added, {len(stale)} stale")
-    if stale and not prune:
-        print("Run sync-company-models --prune to remove stale synchronized models")
+    print(f"Company models: {len(model_ids)} available, {added} added")
 
 
 def wait_for_proxy():
@@ -169,23 +162,24 @@ def wait_for_proxy():
 
 if __name__ == "__main__":
     arguments = sys.argv[1:]
-    if arguments == ["init"]:
+    if arguments == ["start"] or arguments == ["restart"]:
         initialize()
-    else:
-        if not env_file.is_file():
-            raise SystemExit(f"Run python3 {config_dir / 'start.py'} init first")
         environment = os.environ.copy()
         environment.update(provider_environment())
-        if arguments in (["sync-company-models"], ["sync-company-models", "--prune"]):
-            sync_company_models(environment, prune="--prune" in arguments)
-        else:
-            subprocess.run(
-                compose_command(arguments or ["up", "-d"]),
-                env=environment, check=True,
-            )
-            if not arguments or arguments == ["up", "-d"]:
-                wait_for_proxy()
-                try:
-                    sync_company_models(environment)
-                except (OSError, KeyError, ValueError, RuntimeError) as error:
-                    print(f"Model sync failed; proxy remains running: {error}", file=sys.stderr)
+        compose_args = ["up", "-d"]
+        if arguments == ["restart"]:
+            compose_args.extend(["--force-recreate", "proxy"])
+        subprocess.run(compose_command(compose_args), env=environment, check=True)
+        wait_for_proxy()
+        try:
+            sync_company_models(environment)
+        except (OSError, KeyError, ValueError, RuntimeError) as error:
+            print(f"Model sync failed; proxy remains running: {error}", file=sys.stderr)
+    elif arguments and arguments[0] in {"stop", "ps", "logs", "exec"}:
+        if not env_file.is_file():
+            raise SystemExit("Run litellm-local start first")
+        environment = os.environ.copy()
+        environment.update(provider_environment())
+        subprocess.run(compose_command(arguments), env=environment, check=True)
+    else:
+        raise SystemExit("Usage: litellm-local {start|restart|stop|ps|logs [service]|exec ...}")

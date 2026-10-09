@@ -104,11 +104,10 @@ chezmoi update
 
 ```bash
 chezmoi --source "$PWD" apply ~/.config/litellm ~/.local/bin/litellm-local
-litellm-local init
-litellm-local up -d
+litellm-local start
 ```
 
-`init` 在本机 `~/.local/share/litellm/.env` 缺失时生成管理员密钥、加密盐值及
+`start` 在本机 `~/.local/share/litellm/.env` 缺失时生成管理员密钥、加密盐值及
 PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用户名和密码，
 本地登录使用 `admin/admin`，网关仅监听本机回环地址。`.env` 不同步到仓库。
 上游凭据优先使用本机环境变量或 `.env`，否则读取 CC Switch 的 Codex 提供商
@@ -116,12 +115,11 @@ PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用�
 `DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`。公司内网地址须在新电脑可达。
 现有 OpenAI 官方配置使用 ChatGPT 登录，不是 API Key，因此未导入网关。
 启动时会读取公司 `/v1/models` 并将文本模型同步到 LiteLLM 数据库，别名以 `company-` 开头；
-运行中可用 `litellm-local sync-company-models` 刷新，无需重启或修改 YAML。
-图片模型和 `codex-auto-review` 不会自动加入；上游已移除的模型默认保留，
-确认后才运行 `litellm-local sync-company-models --prune` 删除同步管理的过时条目。
+`restart` 重新创建代理并刷新公司模型。图片模型和 `codex-auto-review` 不会自动加入；
+上游已移除的模型默认保留。
 
 网关仅监听 `127.0.0.1:4000`，管理界面在 `http://127.0.0.1:4000/ui/`。
-`litellm-local ps`、`litellm-local logs proxy` 和 `litellm-local down` 管理容器。
+`litellm-local start`、`restart`、`stop` 管理服务；`ps` 和 `logs proxy` 查看状态与日志。
 密钥、管理界面中新增的模型以及 Token 历史不会随 Git 同步：后两者保存在本机
 Docker 卷中。迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份与原 `.env`：
 
@@ -129,11 +127,12 @@ Docker 卷中。迁移历史记录时，在旧电脑备份数据库，并通过�
 (umask 077; litellm-local exec -T postgres pg_dump -U litellm -d litellm -Fc > "$HOME/litellm.dump")
 ```
 
-新电脑先放置原 `.env`、运行 `litellm-local up -d postgres`，再执行以下恢复命令，
-最后运行 `litellm-local up -d`。备份可能含使用日志及密钥，不要放入本仓库。
+新电脑先放置原 `.env`、运行 `litellm-local start`，再执行以下恢复命令。
+备份可能含使用日志及密钥，不要放入本仓库。
 
 ```bash
 litellm-local exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges -U litellm -d litellm < "$HOME/litellm.dump"
+litellm-local restart
 ```
 
 ### sing-box
