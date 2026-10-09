@@ -99,7 +99,7 @@ chezmoi update
 
 ### 本机 LiteLLM 网关
 
-`~/.config/litellm/` 保存可同步的 Compose 和基础模型配置；Docker、Python 3 是运行前提。
+`~/.config/litellm/` 保存可同步的 Compose 和服务配置；Docker、Python 3 是运行前提。
 首次部署（从本仓库目录执行）：
 
 ```bash
@@ -110,8 +110,9 @@ litellm-local start
 `start` 在本机 `~/.local/share/litellm/.env` 缺失时生成管理员密钥、加密盐值及
 PostgreSQL 密码；不会覆盖已有密钥。默认管理 UI 必须填写用户名和密码，
 本地登录使用 `admin/admin`，网关仅监听本机回环地址。`.env` 不同步到仓库。
-上游凭据由本机环境变量或私有 `.env` 提供。在新电脑的 `.env` 中填写
-`DEEPSEEK_API_KEY`、`COMPANY_API_KEY` 和 `COMPANY_API_BASE`；公司内网地址须在新电脑可达。
+模型与上游凭据由 LiteLLM 数据库和管理 UI 维护。本机凭据 `DeepSeek官方` 连接
+DeepSeek 官方 API；`公司专用` 连接公司聚合服务，其提供商类型为 `openai`，表示使用
+OpenAI 兼容接口，实际模型可来自 DeepSeek 等上游。公司内网地址须在新电脑可达。
 LiteLLM 不再读取 CC Switch；chezmoi 也不再管理 `~/.cc-switch/`，已有本机文件不会自动删除。
 现有 OpenAI 官方配置使用 ChatGPT 登录，不是 OpenAI Platform API Key；订阅通道单独授权。
 要用 ChatGPT 订阅额度，可在本机先完成一次设备授权（需本人打开提示的 URL 并输入代码）：
@@ -126,21 +127,19 @@ docker run --rm -it --entrypoint python \
 litellm-local restart
 ```
 
-授权文件只保存在本机 `~/.local/share/litellm/chatgpt/`，不进入 Git。代理从该目录读取并刷新令牌；
+授权文件只保存在本机 `~/.local/share/litellm/chatgpt/`，不进入 Git 或 LiteLLM 数据库。代理从该目录读取并刷新令牌；
 `chatgpt-gpt-6.1-sol` 使用订阅登录通道，不需要 OpenAI Platform API Key；
 本机已验证 `/v1/responses` 和 `/v1/chat/completions` 均可调用，UI Playground 可选此模型。
 ChatGPT Plus 的可用模型和额度以实际授权后的请求结果为准。
-模型别名、提供商路由和服务设置统一写在 `~/.config/litellm/config.yaml` 与
-`~/.config/litellm/compose.yaml`。其中列出当前使用的 10 个公司文本模型，别名以
-`company-` 开头；上游模型变化后，修改仓库中的 `dot_config/private_litellm/config.yaml`，
-执行 `chezmoi --source "$PWD" apply ~/.config/litellm/config.yaml` 和 `litellm-local restart`。
-配置设为 `store_model_in_db: false`，管理 UI 中临时新增的数据库模型不会加载。
+`config.yaml` 只保留服务设置，并启用 `store_model_in_db: true`。在管理 UI 的
+**LLM Credentials** 中管理上游凭据，在 **Models + Endpoints** 中增删模型并选择凭据；
+新增的公司模型也需要在这里加入，LiteLLM 不会自动同步公司 `/models` 清单。
 
 网关仅监听 `127.0.0.1:4000`，管理界面在 `http://127.0.0.1:4000/ui/`。
 `litellm-local start`、`restart`、`stop` 管理服务；`ps` 和 `logs proxy` 查看状态与日志。
-模型配置随 Git 同步；密钥、ChatGPT 授权文件和 Token 历史不会同步，保存在本机。
-此前在管理界面创建的数据库模型记录仍保留在本机数据库中，但不会加载。
-迁移历史记录时，在旧电脑备份数据库，并通过安全渠道转移备份与原 `.env`：
+模型、上游凭据和 Token 历史保存在本机 PostgreSQL 中，不随 Git 同步。
+迁移到新电脑时，在旧电脑备份数据库，并通过安全渠道转移备份与原 `.env`；
+ChatGPT 授权文件还需单独转移或重新授权：
 
 ```bash
 (umask 077; litellm-local exec -T postgres pg_dump -U litellm -d litellm -Fc > "$HOME/litellm.dump")

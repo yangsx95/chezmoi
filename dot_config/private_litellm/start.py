@@ -11,7 +11,6 @@ from pathlib import Path
 config_dir = Path(__file__).resolve().parent
 data_dir = Path.home() / ".local/share/litellm"
 env_file = data_dir / ".env"
-required_keys = {"DEEPSEEK_API_KEY", "COMPANY_API_KEY", "COMPANY_API_BASE"}
 proxy_url = "http://127.0.0.1:4000"
 
 
@@ -25,19 +24,7 @@ def initialize():
         output.write(f"LITELLM_MASTER_KEY=sk-{secrets.token_hex(32)}\n")
         output.write(f"LITELLM_SALT_KEY=sk-{secrets.token_hex(32)}\n")
         output.write(f"POSTGRES_PASSWORD={secrets.token_hex(32)}\n")
-    print(f"Created {env_file}; add provider credentials")
-
-
-def provider_environment():
-    configured = {key for key in required_keys if os.environ.get(key)}
-    for line in env_file.read_text().splitlines():
-        key, separator, value = line.partition("=")
-        if separator and value.strip():
-            configured.add(key.strip())
-    missing = required_keys - configured
-    if missing:
-        raise SystemExit(f"Add {', '.join(sorted(missing))} to {env_file}")
-    return {}
+    print(f"Created {env_file}")
 
 
 def compose_command(arguments):
@@ -64,18 +51,14 @@ if __name__ == "__main__":
     arguments = sys.argv[1:]
     if arguments == ["start"] or arguments == ["restart"]:
         initialize()
-        environment = os.environ.copy()
-        environment.update(provider_environment())
         compose_args = ["up", "-d"]
         if arguments == ["restart"]:
             compose_args.extend(["--force-recreate", "proxy"])
-        subprocess.run(compose_command(compose_args), env=environment, check=True)
+        subprocess.run(compose_command(compose_args), check=True)
         wait_for_proxy()
     elif arguments and arguments[0] in {"stop", "ps", "logs", "exec"}:
         if not env_file.is_file():
             raise SystemExit("Run litellm-local start first")
-        environment = os.environ.copy()
-        environment.update(provider_environment())
-        subprocess.run(compose_command(arguments), env=environment, check=True)
+        subprocess.run(compose_command(arguments), check=True)
     else:
         raise SystemExit("Usage: litellm-local {start|restart|stop|ps|logs [service]|exec ...}")
