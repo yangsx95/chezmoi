@@ -4,3 +4,8 @@
 if [ -t 1 ] && [ -z "${ZSH_VERSION:-}" ] && command -v zsh >/dev/null 2>&1; then
     exec zsh -l
 fi
+
+# Otty shell integration：仅由 Otty 启动时生效。
+if [ -n "${OTTY_SHELL_INTEGRATION:-}" ] && [ -r "$OTTY_SHELL_INTEGRATION/otty-integration.bash" ]; then
+    . "$OTTY_SHELL_INTEGRATION/otty-integration.bash"
+fi

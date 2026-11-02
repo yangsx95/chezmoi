@@ -1,3 +1,4 @@
 # GitHub CLI (gh) 配置
 git_protocol: ssh
 prompt: enabled
+version: "1"
