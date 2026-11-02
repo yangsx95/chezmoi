@@ -1,0 +1,32 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install chezmoi sing-box jq
+
+      - name: Syntax checks
+        run: |
+          bash -n setup.sh
+          for script in tests/*.sh; do bash -n "$script"; done
+          for script in dot_local/libexec/*.mjs tests/*.mjs; do node --check "$script"; done
+
+      - name: Run tests
+        run: |
+          for test in tests/*.sh; do
+            echo "== $test"
+            bash "$test"
+          done
+          node tests/sing-box-android-export.mjs
+          python3 tests/media-to-text.py
