@@ -8,7 +8,7 @@
   <array>
     <string>{{ .chezmoi.homeDir }}/.local/libexec/sing-box-start-when-network-ready</string>
     <string>{{ .chezmoi.homeDir }}/.local/share/sing-box/private/10-outbounds.json</string>
-    <string>/opt/homebrew/bin/sing-box</string>
+    <string>{{ if eq .chezmoi.arch "arm64" }}/opt/homebrew{{ else }}/usr/local{{ end }}/bin/sing-box</string>
     <string>run</string>
     <string>-c</string>
     <string>{{ .chezmoi.homeDir }}/.config/sing-box/config.d/00-base.json</string>

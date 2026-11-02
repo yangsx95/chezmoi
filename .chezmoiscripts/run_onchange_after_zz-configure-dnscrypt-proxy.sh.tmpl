@@ -11,24 +11,36 @@ brew_prefix=$(brew --prefix)
 binary=$(brew --prefix dnscrypt-proxy)/sbin/dnscrypt-proxy
 system_config="$brew_prefix/etc/dnscrypt-proxy.toml"
 
-[ -s "$blocklist" ] || { printf 'Missing DNS blocklist: %s\n' "$blocklist" >&2; exit 1; }
-[ -s "$allowlist" ] || { printf 'Missing DNS allowlist: %s\n' "$allowlist" >&2; exit 1; }
+if [ ! -s "$blocklist" ] || [ ! -s "$allowlist" ]; then
+  printf '%s\n' 'Skipping dnscrypt-proxy DNS configuration: run sing-box-managed compile first.' >&2
+  exit 0
+fi
+
 "$binary" -check -config "$managed_config"
 install -m 644 "$managed_config" "$system_config"
 
-network_service=$(networksetup -listnetworkserviceorder | awk '
+default_if=$(/sbin/route -n get default 2>/dev/null | awk '/^[[:space:]]*interface:/ { print $2; exit }')
+if [ -z "$default_if" ]; then
+  printf '%s\n' 'Skipping DNS switch: no default route is currently active.' >&2
+  exit 0
+fi
+
+network_service=$(/usr/sbin/networksetup -listnetworkserviceorder | awk -v dev="$default_if" '
   /^\([0-9]+\) / { service=$0; sub(/^\([0-9]+\) /, "", service) }
-  /Device: en0\)/ { print service; exit }
+  index($0, "Device: " dev ")") { print service; exit }
 ')
-[ -n "$network_service" ] || { printf '%s\n' 'Could not find the macOS network service for en0.' >&2; exit 1; }
+[ -n "$network_service" ] || { printf 'Could not find the macOS network service for %s.\n' "$default_if" >&2; exit 1; }
 
 osascript - "$brew_prefix" "$network_service" <<'APPLESCRIPT'
 on run argv
   set brewPrefix to item 1 of argv
   set networkService to item 2 of argv
-  set commandText to quoted form of (brewPrefix & "/bin/brew") & " services restart dnscrypt-proxy; " & ¬
-    "/usr/sbin/networksetup -setdnsservers " & quoted form of networkService & " 127.0.0.1; " & ¬
-    "/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder"
+  set commandText to quoted form of (brewPrefix & "/bin/brew") & " services restart dnscrypt-proxy" & ¬
+    " && /bin/sleep 1" & ¬
+    " && /usr/bin/pgrep -x dnscrypt-proxy >/dev/null" & ¬
+    " && /usr/sbin/networksetup -setdnsservers " & quoted form of networkService & " 127.0.0.1" & ¬
+    " && /usr/bin/dscacheutil -flushcache" & ¬
+    " && /usr/bin/killall -HUP mDNSResponder"
   do shell script commandText with administrator privileges
 end run
 APPLESCRIPT

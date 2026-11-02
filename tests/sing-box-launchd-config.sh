@@ -12,7 +12,11 @@ if printf '%s' "$service" | plutil -extract RunAtLoad raw -o - - >/dev/null 2>&1
 [ "$(printf '%s' "$service" | plutil -extract ProcessType raw -o - -)" = Background ]
 printf '%s' "$service" | grep -q '/\.local/libexec/sing-box-start-when-network-ready</string>'
 printf '%s' "$service" | grep -q '/\.local/share/sing-box/private/10-outbounds.json</string>'
-printf '%s' "$service" | grep -q '/opt/homebrew/bin/sing-box</string>'
+case "$(chezmoi execute-template '{{ .chezmoi.arch }}')" in
+  arm64) brew_prefix=/opt/homebrew ;;
+  *) brew_prefix=/usr/local ;;
+esac
+printf '%s' "$service" | grep -q "$brew_prefix/bin/sing-box</string>"
 printf '%s' "$limiter" | grep -q '<integer>60</integer>'
 printf '%s' "$limiter" | grep -q '<string>5242880</string>'
 printf '%s' "$limiter" | grep -q '<string>1048576</string>'

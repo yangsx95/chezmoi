@@ -23,4 +23,11 @@ if ! command -v sing-box >/dev/null 2>&1; then
   exit 0
 fi
 
+private_config="{{ .chezmoi.homeDir }}/.local/share/sing-box/private/10-outbounds.json"
+if [ ! -f "$private_config" ]; then
+  printf 'sing-box private outbounds are not configured: %s\n' "$private_config" >&2
+  printf '%s\n' 'Skipping personal rule compilation. Create the private configuration, then run: sing-box-managed compile' >&2
+  exit 0
+fi
+
 "{{ .chezmoi.homeDir }}/.local/bin/sing-box-managed" compile
