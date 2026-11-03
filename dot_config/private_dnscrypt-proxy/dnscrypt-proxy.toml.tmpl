@@ -1,5 +1,6 @@
 server_names = ['alidns-doh']
 listen_addresses = ['127.0.0.1:53']
+forwarding_rules = '{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/forwarding-rules.txt'
 max_clients = 250
 
 ipv4_servers = true

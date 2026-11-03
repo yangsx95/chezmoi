@@ -1,0 +1,6 @@
+# DACS-managed domains use the ISP resolver so internal split-view records
+# remain available while all other names continue through AliDNS over DoH.
+rhecube.com 114.114.114.114
+spicrhdk.com 114.114.114.114
+cpirhzl.com 114.114.114.114
+spicqyxdl.com 114.114.114.114

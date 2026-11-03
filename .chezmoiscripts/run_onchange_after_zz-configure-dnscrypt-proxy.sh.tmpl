@@ -2,18 +2,27 @@
 set -eu
 
 # config: {{ include "dot_config/private_dnscrypt-proxy/dnscrypt-proxy.toml.tmpl" | sha256sum }}
+# forwarding-rules: {{ include "dot_config/private_dnscrypt-proxy/forwarding-rules.txt" | sha256sum }}
 
 {{ if eq .chezmoi.os "darwin" -}}
 managed_config="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/dnscrypt-proxy.toml"
 blocklist="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/blocked-names.txt"
 allowlist="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/allowed-names.txt"
+forwarding_rules="{{ .chezmoi.homeDir }}/.config/dnscrypt-proxy/forwarding-rules.txt"
 brew_prefix=$(brew --prefix)
 binary=$(brew --prefix dnscrypt-proxy)/sbin/dnscrypt-proxy
 system_config="$brew_prefix/etc/dnscrypt-proxy.toml"
+service_label="sh.brew.dnscrypt-proxy"
+service_plist="/Library/LaunchDaemons/$service_label.plist"
 
 if [ ! -s "$blocklist" ] || [ ! -s "$allowlist" ]; then
   printf '%s\n' 'Skipping dnscrypt-proxy DNS configuration: run sing-box-managed compile first.' >&2
   exit 0
+fi
+
+if [ ! -s "$forwarding_rules" ]; then
+  printf 'Missing dnscrypt-proxy forwarding rules: %s\n' "$forwarding_rules" >&2
+  exit 1
 fi
 
 "$binary" -check -config "$managed_config"
@@ -31,13 +40,24 @@ network_service=$(/usr/sbin/networksetup -listnetworkserviceorder | awk -v dev="
 ')
 [ -n "$network_service" ] || { printf 'Could not find the macOS network service for %s.\n' "$default_if" >&2; exit 1; }
 
-osascript - "$brew_prefix" "$network_service" <<'APPLESCRIPT'
+osascript - "$brew_prefix" "$service_label" "$service_plist" "$network_service" <<'APPLESCRIPT'
 on run argv
   set brewPrefix to item 1 of argv
-  set networkService to item 2 of argv
-  set commandText to quoted form of (brewPrefix & "/bin/brew") & " services restart dnscrypt-proxy" & ¬
-    " && /bin/sleep 1" & ¬
-    " && /usr/bin/pgrep -x dnscrypt-proxy >/dev/null" & ¬
+  set serviceLabel to item 2 of argv
+  set servicePlist to item 3 of argv
+  set networkService to item 4 of argv
+  set publicProbe to "/usr/bin/dig @127.0.0.1 example.com A +short +time=1 +tries=1 | /usr/bin/grep -Eq '^[0-9]+[.]'"
+  set dacsProbe to "/usr/bin/dig @127.0.0.1 fatxydt.spicrhdk.com A +short +time=1 +tries=1 | /usr/bin/grep -Eq '^[0-9]+[.]'"
+  set waitCommand to "attempt=0; until /bin/sh -c " & (quoted form of publicProbe) & ¬
+    " && /bin/sh -c " & (quoted form of dacsProbe) & "; do" & ¬
+    " attempt=$((attempt + 1));" & ¬
+    " [ \"$attempt\" -lt 60 ] || exit 1;" & ¬
+    " /bin/sleep 0.5;" & ¬
+    " done"
+  set restartCommand to "if [ -f " & quoted form of servicePlist & ¬
+    " ]; then /bin/launchctl kickstart -k " & quoted form of ("system/" & serviceLabel) & ";" & ¬
+    " else " & quoted form of (brewPrefix & "/bin/brew") & " services start dnscrypt-proxy; fi"
+  set commandText to restartCommand & " && " & waitCommand & ¬
     " && /usr/sbin/networksetup -setdnsservers " & quoted form of networkService & " 127.0.0.1" & ¬
     " && /usr/bin/dscacheutil -flushcache" & ¬
     " && /usr/bin/killall -HUP mDNSResponder"
