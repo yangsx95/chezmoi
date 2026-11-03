@@ -23,12 +23,6 @@ if ! command -v sing-box >/dev/null 2>&1; then
   exit 0
 fi
 
-manager="{{ .chezmoi.homeDir }}/.local/bin/sing-box-managed"
-if [ ! -x "$manager" ]; then
-  printf '%s\n' 'sing-box-managed is not available on this platform; skipping personal rule compilation.' >&2
-  exit 0
-fi
-
 private_config="{{ .chezmoi.homeDir }}/.local/share/sing-box/private/10-outbounds.json"
 if [ ! -f "$private_config" ]; then
   printf 'sing-box private outbounds are not configured: %s\n' "$private_config" >&2
@@ -36,4 +30,4 @@ if [ ! -f "$private_config" ]; then
   exit 0
 fi
 
-"$manager" compile
+"{{ .chezmoi.homeDir }}/.local/bin/sing-box-managed" compile

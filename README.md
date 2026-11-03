@@ -123,12 +123,8 @@ macOS 额外使用本机 `dnscrypt-proxy`（`127.0.0.1:53`）；`compile`/`updat
 会从 sing-box 编译后的规则同步全部启用的 DNS 域名阻断项及代理节点精确白名单，
 使 sing-box 停止时仍保持相同的域名过滤。`dns_block: false`、IP/端口拦截和安全搜索重写不属于此同步范围。
 `dns-sync` 使用当前编译产物；修改规则定义或更新订阅后请先执行 `compile`。
-`chezmoi apply` 会自动安装 sing-box 和 dnscrypt-proxy。首次使用前需要手工准备
-`~/.local/share/sing-box/private/10-outbounds.json`（节点凭据，不入库）；文件缺失时，
-apply 会跳过规则编译、DNS 同步和 launchd 注册并给出提示，待配置后再运行
-`sing-box-managed compile`。配置就绪后，apply 会校验、部署 DNS 配置、注册开机服务
-并通过管理员权限设置系统 DNS。独立 DNS 只在 dnscrypt-proxy 重启并确认进程存在后
-才切换系统 DNS，避免服务启动失败时把 DNS 指向不可用的 `127.0.0.1`。
+`chezmoi apply` 会自动安装 sing-box 和 dnscrypt-proxy，并校验、部署 DNS 配置、
+注册开机服务及设置系统 DNS。
 
 ---
 
@@ -189,20 +185,14 @@ cd $(chezmoi source-path)  # 进入仓库目录
 
 ```
 ~
-├── .zshrc / .zshrc.local / .zshrc.work  # Shell 配置（.local/.work 不入库）
-├── .zprofile / .bashrc               # Login shell / bash 入口
+├── .zshrc / .zprofile                # Shell 配置
 ├── .inputrc / .vimrc                 # 终端工具配置
 ├── .gitconfig / .gitignore / .gitattributes  # Git 配置
 ├── .npmrc                            # npm 配置
 ├── .config/
 │   ├── mise/config.toml              # mise 工具版本
 │   ├── pip/pip.conf                  # pip 镜像
-│   ├── gh/config.yml                 # GitHub CLI
-│   ├── sing-box/                     # sing-box 基础配置、规则与 launchd
-│   └── dnscrypt-proxy/               # macOS 独立 DNS 过滤
-├── .local/
-│   ├── bin/                          # sing-box-managed、media-to-text
-│   └── libexec/                      # 规则编译、启动与诊断辅助
+│   └── gh/config.yml                 # GitHub CLI
 ├── .ssh/config                       # SSH 配置
 ├── .m2/settings.xml                  # Maven 配置
 ├── .gradle/                          # Gradle 配置
@@ -216,8 +206,6 @@ cd $(chezmoi source-path)  # 进入仓库目录
 - 安装结果按步骤显示成功、跳过或失败。基础依赖和 dotfiles 更新失败会停止；工具链或可选应用失败会继续后续步骤，但最终仍返回非零退出码。
 - `tests/`、`.github/`、`.idea/` 和仓库说明文件不部署到家目录。此前已部署的 `~/tests/` 不会自动删除，请确认内容后自行清理。
 - Shell 默认仅加载 Git、已安装的 autosuggestions 和 syntax-highlighting；保留 `.zshrc.local`、`.zshrc.work` 扩展入口，Node 警告正常显示。
-- 私有 sing-box 配置缺失、或没有默认路由时，`chezmoi apply` 会跳过规则编译/DNS/launchd 步骤而不是中断；这些 macOS 步骤会请求管理员权限，SSH 或无人值守场景可先用 `chezmoi apply --exclude scripts`。
-- GitHub Actions 会在 macOS 上运行 shell、Node 和 Python 测试（`.github/workflows/checks.yml`）。
 
 安装保护逻辑可通过 `bash tests/setup-safety.sh` 在模拟环境中验证，不会执行真实安装。
 

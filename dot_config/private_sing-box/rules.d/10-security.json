@@ -34,15 +34,15 @@
     },
     {
       "tag": "malware",
-      "name": "The Block List Project - Malware",
+      "name": "URLhaus - Malware Hostfile",
       "type": "route-rule",
       "enabled": true,
       "priority": 130,
       "action": "block",
       "sources": [
         {
-          "format": "domain-list",
-          "url": "https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/malware-nl.txt"
+          "format": "hosts",
+          "url": "https://urlhaus.abuse.ch/downloads/hostfile/"
         }
       ],
       "local_rules": []

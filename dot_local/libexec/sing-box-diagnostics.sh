@@ -152,13 +152,7 @@ status_all() {
   fi
   dns_presence=absent
   [ -z "$dns_pid" ] || dns_presence=present
-  dns_launch_label=homebrew.mxcl.dnscrypt-proxy
-  dns_launch_plist=/Library/LaunchDaemons/homebrew.mxcl.dnscrypt-proxy.plist
-  if launchctl print system/sh.brew.dnscrypt-proxy >/dev/null 2>&1 || [ -f /Library/LaunchDaemons/sh.brew.dnscrypt-proxy.plist ]; then
-    dns_launch_label=sh.brew.dnscrypt-proxy
-    dns_launch_plist=/Library/LaunchDaemons/sh.brew.dnscrypt-proxy.plist
-  fi
-  launch_service_status "$dns_launch_label" "$dns_launch_plist" "$dns_presence"
+  launch_service_status homebrew.mxcl.dnscrypt-proxy /Library/LaunchDaemons/homebrew.mxcl.dnscrypt-proxy.plist "$dns_presence"
   browser_security_status || service_result=1
   printf '\nStatus shows installation/process state. Test functionality: sing-box-managed doctor\n'
   return "$service_result"
